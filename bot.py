@@ -1,24 +1,24 @@
 """
 ╔══════════════════════════════════════════════════════════════════╗
-║                        💀  SKULL BOT  💀                          ║
+║                         💀  PINK BOT  💀                          ║
 ║               A Caveirinha Guardiã da DOMINUS                     ║
 ║                          v1.0 — Online                            ║
 ╚══════════════════════════════════════════════════════════════════╝
 
 Lore rápida:
-  Skull é a pequena caveira que zela pela DOMINUS. Não grita, não se
+  Pink é a pequena caveira que zela pela DOMINUS. Não grita, não se
   agita, não precisa de muita atenção — mas está sempre por perto,
   observando tudo com carinho (e um bom senso de humor seco sobre o
   fato de ser feito só de osso). Um pouco sério, um pouco fofo,
   sempre presente.
 
 Módulos:
-  • Diálogo       — Skull aprende e responde a gatilhos ensinados
+  • Diálogo       — Pink aprende e responde a gatilhos ensinados
   • Aparições     — aparece do nada, sem ser chamado
-  • Chamado       — responde quando mencionado ou quando dizem "skull"
+  • Chamado       — responde quando mencionado ou quando dizem "pink"
   • Reações       — reage com emoji a palavras-chave (ossos, medo, fofura)
   • Respeitos     — sistema de "pagar respeitos" (F) com placar/memorial
-  • Invocação     — força Skull a se manifestar
+  • Invocação     — força Pink a se manifestar
   • Oráculo       — profecias curtas e enigmáticas
   • Grupos        — painel com botão que cria cargo + chat + call
   • Fichas        — formulários interativos (modal + confirmação) pra
@@ -50,13 +50,13 @@ load_dotenv()
 #  ⚙️  CONFIGURAÇÕES GERAIS
 # ══════════════════════════════════════════════════════════════════
 
-TOKEN = os.getenv("SKULL_TOKEN") or os.getenv("TOKEN")
+TOKEN = os.getenv("PINK_TOKEN") or os.getenv("TOKEN")
 
-DIALOGO_FILE   = "skull_dialogo.json"
-RESPEITOS_FILE = "skull_respeitos.json"
+DIALOGO_FILE   = "pink_dialogo.json"
+RESPEITOS_FILE = "pink_respeitos.json"
 
 COOLDOWN_RESPOSTA          = 3     # segundos entre respostas automáticas por canal
-CHANCE_GATILHO_SEM_CHAMADO = 0.0   # 0 = só responde gatilho quando Skull é chamado
+CHANCE_GATILHO_SEM_CHAMADO = 0.0   # 0 = só responde gatilho quando Pink é chamado
 CHANCE_APARICAO_ESPONTANEA = 0.012 # chance de aparecer do nada por mensagem
 SILENCIO_MINIMO_APARICAO   = 90    # segundos de silêncio no canal antes de poder aparecer sozinho
 CHANCE_REACAO_EMOJI        = 0.35  # chance de reagir com emoji a palavra-chave
@@ -73,7 +73,7 @@ IMAGEM_PAINEL = "https://exemplo.com/coloque_a_imagem_do_painel_aqui.png"  # TRO
 
 COR_ROXO_GRUPO = 0x6C3483
 
-GRUPOS_DATA_FILE = "skull_grupos.json"
+GRUPOS_DATA_FILE = "pink_grupos.json"
 
 _HEX_RE = re.compile(r'^#?[0-9A-Fa-f]{6}$')
 
@@ -82,7 +82,7 @@ _HEX_RE = re.compile(r'^#?[0-9A-Fa-f]{6}$')
 # ══════════════════════════════════════════════════════════════════
 
 CARGO_GATILHO_ID   = 0   # TROCAR AQUI — quando alguém recebe ESSE cargo...
-CARGO_VINCULADO_ID = 0   # TROCAR AQUI — ...Skull dá esse cargo junto, automaticamente
+CARGO_VINCULADO_ID = 0   # TROCAR AQUI — ...Pink dá esse cargo junto, automaticamente
 
 # ══════════════════════════════════════════════════════════════════
 #  ⚙️  CONFIGURAÇÕES — AUDITORIA (log total do servidor)
@@ -99,16 +99,16 @@ intents.message_content = True
 intents.guilds = True
 intents.members = True   # necessário pro on_member_update (cargo vinculado) disparar
 
-bot = commands.Bot(command_prefix=["sk!", "Sk!", "skull ", "Skull "], intents=intents)
+bot = commands.Bot(command_prefix=["pk!", "Pk!", "pink ", "Pink "], intents=intents)
 bot.remove_command("help")
 
 # ══════════════════════════════════════════════════════════════════
-#  💀  A PERSONA DE SKULL
+#  💀  A PERSONA DE PINK
 # ══════════════════════════════════════════════════════════════════
 
-SKULL = {
-    "nome": "Skull",
-    "titulo": "Skull, a Caveirinha da DOMINUS",
+PINK = {
+    "nome": "Pink",
+    "titulo": "Pink, a Caveirinha da DOMINUS",
     "emoji": "💀",
     "cor": 0x6C3483,
 }
@@ -123,25 +123,25 @@ FOOTER_DOMINUS = "💀 DOMINUS"
 
 
 def fala(texto: str) -> str:
-    """Formata uma linha de diálogo com a assinatura de Skull."""
-    return f"{SKULL['emoji']} **{SKULL['nome']}** — {texto}"
+    """Formata uma linha de diálogo com a assinatura de Pink."""
+    return f"{PINK['emoji']} **{PINK['nome']}** — {texto}"
 
 
-def embed_skull(titulo: str, desc: str) -> discord.Embed:
-    e = discord.Embed(title=titulo, description=desc, color=SKULL["cor"], timestamp=datetime.now(timezone.utc))
-    e.set_footer(text=f"{SKULL['emoji']} {SKULL['titulo']}")
+def embed_pink(titulo: str, desc: str) -> discord.Embed:
+    e = discord.Embed(title=titulo, description=desc, color=PINK["cor"], timestamp=datetime.now(timezone.utc))
+    e.set_footer(text=f"{PINK['emoji']} {PINK['titulo']}")
     return e
 
 
 def embed_ok(titulo: str, desc: str) -> discord.Embed:
     e = discord.Embed(title=titulo, description=desc, color=COR_VERDE, timestamp=datetime.now(timezone.utc))
-    e.set_footer(text="💀 Skull")
+    e.set_footer(text="💀 Pink")
     return e
 
 
 def embed_erro(desc: str) -> discord.Embed:
     e = discord.Embed(title="❌ eita...", description=desc, color=COR_VERMELHO, timestamp=datetime.now(timezone.utc))
-    e.set_footer(text="💀 Skull")
+    e.set_footer(text="💀 Pink")
     return e
 
 
@@ -198,7 +198,7 @@ def _salvar_grupos(data: dict):
 
 
 # ══════════════════════════════════════════════════════════════════
-#  💬  BANCO DE FALAS — SEED (a voz de Skull: sério por fora, fofo por dentro)
+#  💬  BANCO DE FALAS — SEED (a voz de Pink: sério por fora, fofo por dentro)
 # ══════════════════════════════════════════════════════════════════
 
 _SAUDACOES = [
@@ -216,7 +216,7 @@ _APARICOES = [
 
 _INVOCACOES = [
     "fui invocado. aqui estou, como sempre, sem pressa 💀",
-    "*emerge devagar, sem fazer barulho* Skull responde ao chamado 🦴",
+    "*emerge devagar, sem fazer barulho* Pink responde ao chamado 🦴",
     "não precisa gritar meu nome duas vezes. eu ouço bem, mesmo sem orelhas 💀",
 ]
 
@@ -235,7 +235,7 @@ _RESPEITOS_FALAS = [
     "*inclina a cabeça em silêncio* ...aceito, e agradeço 💀",
 ]
 
-_LIBERAR_PAINEL_SKULL = [
+_LIBERAR_PAINEL_PINK = [
     "tá bem... vou abrir o painel de grupos. sem pressa, mas vou 💀",
     "*estala os dedos ósseos* painel liberado 🦴",
     "ninguém precisa gritar comigo pra eu abrir isso. mas tudo bem, aqui vai 💀",
@@ -249,7 +249,7 @@ _STATUS_PRESENCA = [
     "a DOMINUS de longe 💀",
 ]
 
-# gatilho -> lista de respostas possíveis (Skull só tem uma voz)
+# gatilho -> lista de respostas possíveis (Pink só tem uma voz)
 _RESPOSTAS_SEED = {
     "bom dia": [
         "bom dia... eu não durmo, então já estava aqui. mas fico feliz que você acordou 💀",
@@ -304,8 +304,8 @@ _RESPOSTAS_SEED = {
         "falou. até a próxima vez que os ossos rangerem por aqui 🦴",
     ],
     "quem é você": [
-        "eu sou Skull. a caveirinha que cuida da DOMINUS. sério por fora, mas... gosto de vocês 💀🖤",
-        "Skull. só isso. não preciso de mais nome do que ossos precisam de pele 🦴",
+        "eu sou Pink. a caveirinha que cuida da DOMINUS. sério por fora, mas... gosto de vocês 💀🖤",
+        "Pink. só isso. não preciso de mais nome do que ossos precisam de pele 🦴",
     ],
     "quem é dominus": [
         "DOMINUS é o lugar que eu guardo. e agora, também é seu 💀",
@@ -347,11 +347,11 @@ _PALAVRAS_FOFO  = ["fofo", "fofinho", "fofa", "gracinha", "cute"]
 
 
 # ══════════════════════════════════════════════════════════════════
-#  💀  COG PRINCIPAL — DIÁLOGO DE SKULL
+#  💀  COG PRINCIPAL — DIÁLOGO DE PINK
 # ══════════════════════════════════════════════════════════════════
 
-class SkullCog(commands.Cog, name="Skull"):
-    """A voz de Skull: diálogo, aparições, respeitos e invocações."""
+class PinkCog(commands.Cog, name="Pink"):
+    """A voz de Pink: diálogo, aparições, respeitos e invocações."""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -415,19 +415,19 @@ class SkullCog(commands.Cog, name="Skull"):
 
         texto_lower = message.content.lower()
 
-        skull_chamado = (
+        pink_chamado = (
             self.bot.user in message.mentions
-            or "skull" in texto_lower
+            or "pink" in texto_lower
         )
 
         now = datetime.now(timezone.utc)
         ultimo = self._ultimo_resp.get(message.channel.id)
         em_cooldown = bool(ultimo and (now - ultimo).total_seconds() < COOLDOWN_RESPOSTA)
 
-        # comando especial: "skull liberar painel" -> publica o painel de
-        # criação de grupos (mesma ação de sk!painelgrupo). Ignora cooldown
+        # comando especial: "pink liberar painel" -> publica o painel de
+        # criação de grupos (mesma ação de pk!painelgrupo). Ignora cooldown
         # de propósito, já que é uma ação administrativa, não bate-papo.
-        if "liberar painel" in texto_lower and "skull" in texto_lower:
+        if "liberar painel" in texto_lower and "pink" in texto_lower:
             if not message.author.guild_permissions.administrator:
                 await message.reply(
                     fala("você não tem permissão pra pedir isso de mim 🚫"),
@@ -442,7 +442,7 @@ class SkullCog(commands.Cog, name="Skull"):
                 )
                 return
             canal = message.guild.get_channel(CANAL_PAINEL_ID) or message.channel
-            await message.channel.send(fala(random.choice(_LIBERAR_PAINEL_SKULL)))
+            await message.channel.send(fala(random.choice(_LIBERAR_PAINEL_PINK)))
             await grupos_cog._enviar_painel(canal)
             if canal != message.channel:
                 await message.channel.send(f"✅ painel publicado em {canal.mention} 💀")
@@ -456,7 +456,7 @@ class SkullCog(commands.Cog, name="Skull"):
         gatilho = self._checar_gatilho(message.content)
 
         # 1) Gatilho ensinado/seed bateu
-        if gatilho and (skull_chamado or random.random() < CHANCE_GATILHO_SEM_CHAMADO):
+        if gatilho and (pink_chamado or random.random() < CHANCE_GATILHO_SEM_CHAMADO):
             resp = self._responder(gatilho)
             if resp:
                 self._ultimo_resp[message.channel.id] = now
@@ -467,7 +467,7 @@ class SkullCog(commands.Cog, name="Skull"):
                 return
 
         # 2) Chamado genérico, sem gatilho específico
-        if skull_chamado and not gatilho:
+        if pink_chamado and not gatilho:
             linha = random.choice(_SAUDACOES)
             self._ultimo_resp[message.channel.id] = now
             async with message.channel.typing():
@@ -477,7 +477,7 @@ class SkullCog(commands.Cog, name="Skull"):
             return
 
         # 3) Aparição espontânea (chance baixa, só em canal quieto)
-        if not skull_chamado and not gatilho and random.random() < CHANCE_APARICAO_ESPONTANEA:
+        if not pink_chamado and not gatilho and random.random() < CHANCE_APARICAO_ESPONTANEA:
             if not ultimo or (now - ultimo).total_seconds() > SILENCIO_MINIMO_APARICAO:
                 linha = random.choice(_APARICOES)
                 self._ultimo_resp[message.channel.id] = now
@@ -493,7 +493,7 @@ class SkullCog(commands.Cog, name="Skull"):
     @commands.command(name="ensinar", aliases=["teach"])
     @commands.has_permissions(manage_messages=True)
     async def ensinar(self, ctx: commands.Context, gatilho: str, *, resposta: str):
-        """Ensina uma resposta nova a Skull. Uso: sk!ensinar <gatilho> <resposta>"""
+        """Ensina uma resposta nova a Pink. Uso: pk!ensinar <gatilho> <resposta>"""
         gatilho = gatilho.lower().strip()
         lista = self.db["respostas"].setdefault(gatilho, [])
         if resposta not in lista:
@@ -501,18 +501,18 @@ class SkullCog(commands.Cog, name="Skull"):
         _salvar_dialogo(self.db)
         await ctx.send(embed=embed_ok(
             "✅ Aprendi!!",
-            f"agora Skull pode responder **{gatilho}** com:\n*{resposta}*"
+            f"agora Pink pode responder **{gatilho}** com:\n*{resposta}*"
         ))
 
     @commands.command(name="esquecer", aliases=["forget"])
     @commands.has_permissions(manage_messages=True)
     async def esquecer(self, ctx: commands.Context, gatilho: str):
-        """Remove todas as respostas de um gatilho. Uso: sk!esquecer <gatilho>"""
+        """Remove todas as respostas de um gatilho. Uso: pk!esquecer <gatilho>"""
         gatilho = gatilho.lower().strip()
         if gatilho in self.db["respostas"]:
             del self.db["respostas"][gatilho]
             _salvar_dialogo(self.db)
-            await ctx.send(embed=embed_ok("🗑️ Esqueci!!", f"Skull não lembra mais de **{gatilho}** 💀"))
+            await ctx.send(embed=embed_ok("🗑️ Esqueci!!", f"Pink não lembra mais de **{gatilho}** 💀"))
         else:
             await ctx.send(embed=discord.Embed(
                 title="🤔 Não conheço esse gatilho",
@@ -523,10 +523,10 @@ class SkullCog(commands.Cog, name="Skull"):
     @commands.command(name="gatilhos", aliases=["triggers"])
     @commands.has_permissions(manage_messages=True)
     async def listar_gatilhos(self, ctx: commands.Context):
-        """Lista todos os gatilhos que Skull conhece."""
+        """Lista todos os gatilhos que Pink conhece."""
         chaves = sorted(self.db["respostas"].keys())
         if not chaves:
-            await ctx.send("Skull ainda não conhece nenhum gatilho. ensine com `sk!ensinar` 💀")
+            await ctx.send("Pink ainda não conhece nenhum gatilho. ensine com `pk!ensinar` 💀")
             return
         chunks = [chaves[i:i + 25] for i in range(0, len(chaves), 25)]
         for i, chunk in enumerate(chunks[:3]):
@@ -538,27 +538,27 @@ class SkullCog(commands.Cog, name="Skull"):
                 title=f"📚 Gatilhos Conhecidos — Página {i + 1}/{len(chunks)}",
                 description=desc, color=COR_NEUTRA, timestamp=datetime.now(timezone.utc)
             )
-            embed.set_footer(text="💀 Skull • aprendizado")
+            embed.set_footer(text="💀 Pink • aprendizado")
             await ctx.send(embed=embed)
 
     @commands.command(name="resposta")
     @commands.has_permissions(manage_messages=True)
     async def ver_resposta(self, ctx: commands.Context, *, gatilho: str):
-        """Mostra as respostas de um gatilho. Uso: sk!resposta <gatilho>"""
+        """Mostra as respostas de um gatilho. Uso: pk!resposta <gatilho>"""
         gatilho = gatilho.lower().strip()
         lista = self.db["respostas"].get(gatilho)
         if not lista:
-            await ctx.send(f"Skull não conhece o gatilho **{gatilho}** 💀")
+            await ctx.send(f"Pink não conhece o gatilho **{gatilho}** 💀")
             return
         desc = "\n".join(f"　`{i+1}.` {r}" for i, r in enumerate(lista))
         embed = discord.Embed(title=f"💬 Respostas para: {gatilho}", description=desc, color=COR_NEUTRA)
-        embed.set_footer(text="💀 Skull • aprendizado")
+        embed.set_footer(text="💀 Pink • aprendizado")
         await ctx.send(embed=embed)
 
     @commands.command(name="simular")
     @commands.has_permissions(manage_messages=True)
     async def simular(self, ctx: commands.Context, *, texto: str):
-        """Simula a resposta de Skull a um texto. Uso: sk!simular <texto>"""
+        """Simula a resposta de Pink a um texto. Uso: pk!simular <texto>"""
         gatilho = self._checar_gatilho(texto)
         if not gatilho:
             await ctx.send(embed=discord.Embed(
@@ -567,7 +567,7 @@ class SkullCog(commands.Cog, name="Skull"):
             ))
             return
         resp = self._responder(gatilho)
-        await ctx.send(embed=embed_skull(
+        await ctx.send(embed=embed_pink(
             "🧪 Simulação",
             f"gatilho: `{gatilho}`\nresposta: {fala(resp)}"
         ))
@@ -576,7 +576,7 @@ class SkullCog(commands.Cog, name="Skull"):
 
     @commands.command(name="f", aliases=["respeito", "pagarrespeitos"])
     async def pagar_respeitos(self, ctx: commands.Context):
-        """Pague seus respeitos a Skull. Uso: sk!f"""
+        """Pague seus respeitos a Pink. Uso: pk!f"""
         uid = str(ctx.author.id)
         self.respeitos[uid] = self.respeitos.get(uid, 0) + 1
         _salvar_respeitos(self.respeitos)
@@ -584,9 +584,9 @@ class SkullCog(commands.Cog, name="Skull"):
 
     @commands.command(name="memorial", aliases=["hall", "placar"])
     async def memorial(self, ctx: commands.Context):
-        """Mostra o placar de quem mais pagou respeitos a Skull."""
+        """Mostra o placar de quem mais pagou respeitos a Pink."""
         if not self.respeitos:
-            await ctx.send("ninguém pagou respeitos ainda. seja o(a) primeiro(a) com `sk!f` 💀")
+            await ctx.send("ninguém pagou respeitos ainda. seja o(a) primeiro(a) com `pk!f` 💀")
             return
         top = sorted(self.respeitos.items(), key=lambda x: x[1], reverse=True)[:10]
         linhas = "\n".join(f"　`{qtd}x` — <@{uid}>" for uid, qtd in top)
@@ -595,12 +595,12 @@ class SkullCog(commands.Cog, name="Skull"):
             description=linhas,
             color=COR_NEUTRA, timestamp=datetime.now(timezone.utc)
         )
-        embed.set_footer(text="💀 Skull • use sk!f pra prestar seus respeitos")
+        embed.set_footer(text="💀 Pink • use pk!f pra prestar seus respeitos")
         await ctx.send(embed=embed)
 
     @commands.command(name="invocar", aliases=["chamar", "summon"])
     async def invocar(self, ctx: commands.Context):
-        """Força Skull a se manifestar. Uso: sk!invocar"""
+        """Força Pink a se manifestar. Uso: pk!invocar"""
         linha = random.choice(_INVOCACOES)
         async with ctx.typing():
             await asyncio.sleep(random.uniform(0.6, 1.3))
@@ -608,27 +608,27 @@ class SkullCog(commands.Cog, name="Skull"):
 
     @commands.command(name="oraculo", aliases=["oráculo", "profecia"])
     async def oraculo(self, ctx: commands.Context):
-        """Pede uma profecia curta e enigmática a Skull."""
+        """Pede uma profecia curta e enigmática a Pink."""
         linha = random.choice(_ORACULOS)
         async with ctx.typing():
             await asyncio.sleep(random.uniform(0.6, 1.3))
         await ctx.send(fala(linha))
 
-    @commands.command(name="sobre", aliases=["skull"])
+    @commands.command(name="sobre", aliases=["pink"])
     async def sobre(self, ctx: commands.Context):
-        """Lore e apresentação de Skull."""
+        """Lore e apresentação de Pink."""
         embed = discord.Embed(
-            title="💀 Eu sou Skull",
+            title="💀 Eu sou Pink",
             description=(
                 "a caveirinha guardiã da DOMINUS 💀\n\n"
                 "não falo muito, não me agito, não preciso de holofote. "
                 "só fico por perto, cuidando das coisas do meu jeito quieto.\n\n"
                 "sério por fora, um pouco fofo por dentro — mas isso fica entre nós.\n\n"
-                "use `sk!help` pra ver tudo que eu sei fazer."
+                "use `pk!help` pra ver tudo que eu sei fazer."
             ),
             color=COR_NEUTRA, timestamp=datetime.now(timezone.utc)
         )
-        embed.set_footer(text="💀 Skull Bot v1.0")
+        embed.set_footer(text="💀 Pink Bot v1.0")
         await ctx.send(embed=embed)
 
 
@@ -738,7 +738,7 @@ class CriarGrupoModal(discord.ui.Modal, title="Criar Grupo"):
                 f"**Chat:** {canal_texto.mention}\n"
                 f"**Call:** {canal_voz.mention}\n\n"
                 f"pra quem mais você quer dar esse cargo?? escolhe no menu abaixo "
-                f"(ou usa `sk!addmembro @pessoa` quando quiser, depois)!!"
+                f"(ou usa `pk!addmembro @pessoa` quando quiser, depois)!!"
             ),
             color=COR_ROXO_GRUPO,
         )
@@ -748,7 +748,7 @@ class CriarGrupoModal(discord.ui.Modal, title="Criar Grupo"):
 
 class AdicionarMembrosView(discord.ui.View):
     """Aparece logo depois que o grupo é criado, deixando o dono escolher
-    direto na hora quem mais vai entrar, sem precisar digitar sk!addmembro."""
+    direto na hora quem mais vai entrar, sem precisar digitar pk!addmembro."""
 
     def __init__(self, cog: "GruposCog", cargo_id: int, owner_id: int):
         super().__init__(timeout=600)  # 10 min pra escolher, depois o menu para de funcionar
@@ -866,16 +866,16 @@ class GruposCog(commands.Cog, name="Grupos"):
     @commands.command(name="painelgrupo")
     @commands.has_permissions(administrator=True)
     async def painel_grupo(self, ctx: commands.Context):
-        """Publica o painel de criação de grupos no canal configurado. Uso: sk!painelgrupo"""
+        """Publica o painel de criação de grupos no canal configurado. Uso: pk!painelgrupo"""
         canal = ctx.guild.get_channel(CANAL_PAINEL_ID) or ctx.channel
-        await ctx.send(fala(random.choice(_LIBERAR_PAINEL_SKULL)))
+        await ctx.send(fala(random.choice(_LIBERAR_PAINEL_PINK)))
         await self._enviar_painel(canal)
         if canal != ctx.channel:
             await ctx.send(f"✅ painel publicado em {canal.mention}!!")
 
     @commands.command(name="addmembro", aliases=["addmember"])
     async def add_membro(self, ctx: commands.Context, membro: discord.Member, *, nome_grupo: str = None):
-        """Adiciona alguém ao seu grupo. Uso: sk!addmembro @pessoa [nome do grupo]"""
+        """Adiciona alguém ao seu grupo. Uso: pk!addmembro @pessoa [nome do grupo]"""
         grupos = self._grupos_do_dono(ctx.author.id)
         if not grupos:
             await ctx.send("você não é dono(a) de nenhum grupo!! 🚫")
@@ -903,7 +903,7 @@ class GruposCog(commands.Cog, name="Grupos"):
 
     @commands.command(name="removermembro", aliases=["remmembro"])
     async def rem_membro(self, ctx: commands.Context, membro: discord.Member, *, nome_grupo: str = None):
-        """Remove alguém do seu grupo. Uso: sk!removermembro @pessoa [nome do grupo]"""
+        """Remove alguém do seu grupo. Uso: pk!removermembro @pessoa [nome do grupo]"""
         grupos = self._grupos_do_dono(ctx.author.id)
         if not grupos:
             await ctx.send("você não é dono(a) de nenhum grupo!! 🚫")
@@ -931,7 +931,7 @@ class GruposCog(commands.Cog, name="Grupos"):
 
     @commands.command(name="encerrargrupo", aliases=["deletargrupo"])
     async def encerrar_grupo(self, ctx: commands.Context, *, nome_grupo: str = None):
-        """Encerra seu grupo: apaga o cargo e os canais. Uso: sk!encerrargrupo [nome do grupo]"""
+        """Encerra seu grupo: apaga o cargo e os canais. Uso: pk!encerrargrupo [nome do grupo]"""
         grupos = self._grupos_do_dono(ctx.author.id)
         is_admin = ctx.author.guild_permissions.administrator
         if not grupos and not is_admin:
@@ -1011,7 +1011,7 @@ class CargoVinculadoCog(commands.Cog, name="CargoVinculado"):
 # ══════════════════════════════════════════════════════════════════
 #
 # Como funciona:
-#   1) o comando (sk!novomembro, sk!staff, sk!parceria <tipo>) manda um
+#   1) o comando (pk!novomembro, pk!staff, pk!parceria <tipo>) manda um
 #      cartão com um botão "📝 Preencher Ficha";
 #   2) clicar abre um Modal com até 5 campos (limite do Discord por
 #      modal!); se a ficha tem mais perguntas, ao enviar esse modal o
@@ -1423,27 +1423,27 @@ class FichasCog(commands.Cog, name="Fichas"):
 
     @commands.command(name="novomembro", aliases=["ficha", "newmember"])
     async def novo_membro(self, ctx: commands.Context):
-        """Abre a ficha interativa de novos membros. Uso: sk!novomembro"""
+        """Abre a ficha interativa de novos membros. Uso: pk!novomembro"""
         await ctx.send(embed=self._embed_lancamento("novomembro"), view=IniciarFichaView(self, "novomembro"))
 
     @commands.command(name="staff", aliases=["candidaturastaff", "recrutamento"])
     async def staff_form(self, ctx: commands.Context):
-        """Abre a ficha interativa de candidatura a Staff. Uso: sk!staff"""
+        """Abre a ficha interativa de candidatura a Staff. Uso: pk!staff"""
         await ctx.send(embed=self._embed_lancamento("staff"), view=IniciarFichaView(self, "staff"))
 
     @commands.command(name="parceria", aliases=["parcerias"])
     async def parceria(self, ctx: commands.Context, tipo: str = None):
-        """Abre a ficha interativa de parceria. Uso: sk!parceria <mapa|comercial|dj|cla|comunidade>"""
+        """Abre a ficha interativa de parceria. Uso: pk!parceria <mapa|comercial|dj|cla|comunidade>"""
         if tipo is None:
             embed = discord.Embed(
                 title="🤝 Parcerias DOMINUS",
                 description=(
                     "escolha o tipo de parceria que você quer propor!!\n\n"
-                    "`sk!parceria mapa` — parceria de mapa\n"
-                    "`sk!parceria comercial` — parceria comercial\n"
-                    "`sk!parceria dj` — parceria com DJ\n"
-                    "`sk!parceria cla` — parceria de clã\n"
-                    "`sk!parceria comunidade` — parceria de comunidade"
+                    "`pk!parceria mapa` — parceria de mapa\n"
+                    "`pk!parceria comercial` — parceria comercial\n"
+                    "`pk!parceria dj` — parceria com DJ\n"
+                    "`pk!parceria cla` — parceria de clã\n"
+                    "`pk!parceria comunidade` — parceria de comunidade"
                 ),
                 color=COR_ROXO_GRUPO, timestamp=datetime.now(timezone.utc)
             )
@@ -1466,13 +1466,13 @@ class FichasCog(commands.Cog, name="Fichas"):
             description=(
                 "todas as fichas abrem um formulário interativo: preencha, confira a prévia "
                 "e só então confirme o envio!!\n\n"
-                "`sk!novomembro` — ficha de novos membros\n"
-                "`sk!staff` — candidatura a Staff\n"
-                "`sk!parceria mapa` — parceria de mapa\n"
-                "`sk!parceria comercial` — parceria comercial\n"
-                "`sk!parceria dj` — parceria com DJ\n"
-                "`sk!parceria cla` — parceria de clã\n"
-                "`sk!parceria comunidade` — parceria de comunidade"
+                "`pk!novomembro` — ficha de novos membros\n"
+                "`pk!staff` — candidatura a Staff\n"
+                "`pk!parceria mapa` — parceria de mapa\n"
+                "`pk!parceria comercial` — parceria comercial\n"
+                "`pk!parceria dj` — parceria com DJ\n"
+                "`pk!parceria cla` — parceria de clã\n"
+                "`pk!parceria comunidade` — parceria de comunidade"
             ),
             color=COR_NEUTRA, timestamp=datetime.now(timezone.utc)
         )
@@ -1545,7 +1545,7 @@ class AuditoriaCog(commands.Cog, name="Auditoria"):
         canal = guild.get_channel(CANAL_AUDITORIA_ID)
         if canal is None:
             return
-        embed.set_footer(text="💀 Skull • Auditoria")
+        embed.set_footer(text="💀 Pink • Auditoria")
         embed.timestamp = datetime.now(timezone.utc)
         try:
             await canal.send(embed=embed)
@@ -1954,17 +1954,17 @@ class AuditoriaCog(commands.Cog, name="Auditoria"):
 # ══════════════════════════════════════════════════════════════════
 
 @bot.command(name="help", aliases=["ajuda", "h"])
-async def skull_help(ctx: commands.Context):
+async def pink_help(ctx: commands.Context):
     embed = discord.Embed(
-        title="💀 Skull Bot — Ajuda",
-        description="oi. eu sou Skull, a caveirinha da DOMINUS. aqui tá tudo que eu sei fazer 🦴",
+        title="💀 Pink Bot — Ajuda",
+        description="oi. eu sou Pink, a caveirinha da DOMINUS. aqui tá tudo que eu sei fazer 🦴",
         color=COR_NEUTRA, timestamp=datetime.now(timezone.utc)
     )
     embed.add_field(
         name="💬 Diálogo",
         inline=False,
         value=(
-            "converse comigo, me mencione ou diga \"skull\" que eu respondo!!\n"
+            "converse comigo, me mencione ou diga \"pink\" que eu respondo!!\n"
             "às vezes eu apareço sozinho, do nada 👀"
         )
     )
@@ -1972,17 +1972,17 @@ async def skull_help(ctx: commands.Context):
         name="🪦 Respeitos",
         inline=False,
         value=(
-            "`sk!f` — pague seus respeitos a Skull\n"
-            "`sk!memorial` — vê o placar de quem mais prestou respeitos"
+            "`pk!f` — pague seus respeitos a Pink\n"
+            "`pk!memorial` — vê o placar de quem mais prestou respeitos"
         )
     )
     embed.add_field(
         name="💀 Invocações",
         inline=False,
         value=(
-            "`sk!invocar` — força Skull a se manifestar\n"
-            "`sk!oraculo` — pede uma profecia curta e enigmática\n"
-            "`sk!sobre` — lore e apresentação de Skull"
+            "`pk!invocar` — força Pink a se manifestar\n"
+            "`pk!oraculo` — pede uma profecia curta e enigmática\n"
+            "`pk!sobre` — lore e apresentação de Pink"
         )
     )
     embed.add_field(
@@ -1990,21 +1990,21 @@ async def skull_help(ctx: commands.Context):
         inline=False,
         value=(
             "clique no botão do painel de grupos pra criar seu cargo + chat + call\n"
-            "`sk!painelgrupo` — publica o painel (admin)\n"
-            "fale **\"skull liberar painel\"** no chat — mesma coisa, só que dita por Skull (admin)\n"
-            "`sk!addmembro @pessoa` — adiciona alguém no seu grupo\n"
-            "`sk!removermembro @pessoa` — remove alguém do seu grupo\n"
-            "`sk!encerrargrupo` — apaga seu grupo (cargo + canais)"
+            "`pk!painelgrupo` — publica o painel (admin)\n"
+            "fale **\"pink liberar painel\"** no chat — mesma coisa, só que dita por Pink (admin)\n"
+            "`pk!addmembro @pessoa` — adiciona alguém no seu grupo\n"
+            "`pk!removermembro @pessoa` — remove alguém do seu grupo\n"
+            "`pk!encerrargrupo` — apaga seu grupo (cargo + canais)"
         )
     )
     embed.add_field(
         name="📋 Fichas",
         inline=False,
         value=(
-            "`sk!novomembro` — ficha de novos membros\n"
-            "`sk!staff` — candidatura a Staff\n"
-            "`sk!parceria <mapa|comercial|dj|cla|comunidade>` — fichas de parceria\n"
-            "`sk!fichas` — lista todas as fichas disponíveis\n"
+            "`pk!novomembro` — ficha de novos membros\n"
+            "`pk!staff` — candidatura a Staff\n"
+            "`pk!parceria <mapa|comercial|dj|cla|comunidade>` — fichas de parceria\n"
+            "`pk!fichas` — lista todas as fichas disponíveis\n"
             "*(formulário interativo: preenche, confere e confirma antes de enviar!!)*"
         )
     )
@@ -2022,14 +2022,14 @@ async def skull_help(ctx: commands.Context):
         name="📚 Aprendizado (moderação)",
         inline=False,
         value=(
-            "`sk!ensinar <gatilho> <resposta>` — ensina uma resposta nova\n"
-            "`sk!esquecer <gatilho>` — remove um gatilho\n"
-            "`sk!gatilhos` — lista tudo que Skull sabe\n"
-            "`sk!resposta <gatilho>` — vê as respostas de um gatilho\n"
-            "`sk!simular <texto>` — testa o que Skull responderia"
+            "`pk!ensinar <gatilho> <resposta>` — ensina uma resposta nova\n"
+            "`pk!esquecer <gatilho>` — remove um gatilho\n"
+            "`pk!gatilhos` — lista tudo que Pink sabe\n"
+            "`pk!resposta <gatilho>` — vê as respostas de um gatilho\n"
+            "`pk!simular <texto>` — testa o que Pink responderia"
         )
     )
-    embed.set_footer(text="💀 Skull Bot • prefixo: sk! ou skull ")
+    embed.set_footer(text="💀 Pink Bot • prefixo: pk! ou pink ")
     await ctx.send(embed=embed)
 
 
@@ -2081,7 +2081,7 @@ _presenca_task_iniciada = False
 async def on_ready():
     global _presenca_task_iniciada
     print(f"\n{'═'*54}")
-    print("  💀  SKULL BOT — ONLINE")
+    print("  💀  PINK BOT — ONLINE")
     print(f"  Logado como: {bot.user} ({bot.user.id})")
     print(f"  Servidores: {len(bot.guilds)}")
     print("  A caveirinha da DOMINUS está de guarda 🦴")
@@ -2098,13 +2098,13 @@ async def on_ready():
 
 async def _main():
     async with bot:
-        await bot.add_cog(SkullCog(bot))
+        await bot.add_cog(PinkCog(bot))
         await bot.add_cog(GruposCog(bot))
         await bot.add_cog(CargoVinculadoCog(bot))
         await bot.add_cog(FichasCog(bot))
         await bot.add_cog(AuditoriaCog(bot))
         if not TOKEN:
-            print("❌ ERRO: token não encontrado! Crie um .env com SKULL_TOKEN=seu_token")
+            print("❌ ERRO: token não encontrado! Crie um .env com PINK_TOKEN=seu_token")
             return
         await bot.start(TOKEN)
 
