@@ -101,51 +101,103 @@ CANAL_AUDITORIA_ID = 0   # TROCAR AQUI — canal onde os logs de auditoria são 
 # Reagir com o emoji dá o cargo, tirar a reação remove o cargo — igual
 # ao "reaction role" clássico.
 #
-# Pra cada cargo abaixo, troque o "0" pelo ID real do cargo no seu
-# servidor (Discord > Configurações do servidor > Cargos > clique
-# direito > Copiar ID, com o modo desenvolvedor ativado).
+# Você NÃO precisa mais criar os cargos manualmente! Se um cargo abaixo
+# ficar com ID "0" (ou seja, "TROCAR AQUI" não foi preenchido), Pink
+# cria o cargo sozinha (com nome e cor prontos, ver CARGOS_REGISTRO_AUTO
+# logo abaixo) na primeira vez que o painel daquele cargo for enviado, e
+# guarda o ID gerado em CARGOS_REGISTRO_FILE pra sempre usar o mesmo
+# cargo dali pra frente — não recria em cada restart.
+#
+# Se você preferir usar um cargo que você mesmo já criou, é só colocar
+# o ID real aqui embaixo (Discord > Configurações do servidor > Cargos
+# > clique direito > Copiar ID, com o modo desenvolvedor ativado) que
+# Pink usa o seu cargo em vez de criar um novo.
 
 CANAL_REGISTRO_ID = 1543317542234488942  # canal onde os painéis de registro são publicados
 
-REGISTRO_DATA_FILE = "pink_registro.json"
+REGISTRO_DATA_FILE     = "pink_registro.json"
+CARGOS_REGISTRO_FILE   = "pink_cargos_registro.json"  # guarda os IDs dos cargos que Pink criou sozinha
 
-# chave do cargo -> ID do cargo no servidor — TROCAR AQUI (todos estão em 0)
+# chave do cargo -> ID do cargo no servidor. Deixe em 0 pra Pink criar o
+# cargo automaticamente (recomendado); só preencha se você já tiver um
+# cargo pronto que quer reaproveitar.
 CARGOS_REGISTRO: dict[str, int] = {
     # Verificação
-    "verificacao_menino":    0,  # TROCAR AQUI
-    "verificacao_menina":    0,  # TROCAR AQUI
-    "verificacao_menor18":   0,  # TROCAR AQUI
-    "verificacao_maior18":   0,  # TROCAR AQUI
-    "verificacao_pc":        0,  # TROCAR AQUI
-    "verificacao_celular":   0,  # TROCAR AQUI
+    "verificacao_menino":    0,
+    "verificacao_menina":    0,
+    "verificacao_menor18":   0,
+    "verificacao_maior18":   0,
+    # (computador/celular da Verificação usam os MESMOS cargos do painel
+    # de Dispositivo — "dispositivo_pc" e "dispositivo_mobile" — pra não
+    # criar dois cargos diferentes pra a mesma coisa)
     # Gênero
-    "genero_menina":              0,  # TROCAR AQUI
-    "genero_menino":              0,  # TROCAR AQUI
-    "genero_prefiro_nao_dizer":   0,  # TROCAR AQUI
+    "genero_menina":              0,
+    "genero_menino":              0,
+    "genero_prefiro_nao_dizer":   0,
     # Sexualidade
-    "sexualidade_hetero":             0,  # TROCAR AQUI
-    "sexualidade_lgbt":               0,  # TROCAR AQUI
-    "sexualidade_prefiro_nao_dizer":  0,  # TROCAR AQUI
+    "sexualidade_hetero":             0,
+    "sexualidade_lgbt":               0,
+    "sexualidade_prefiro_nao_dizer":  0,
     # Aniversário
-    "aniversario_janeiro":    0,  # TROCAR AQUI
-    "aniversario_fevereiro":  0,  # TROCAR AQUI
-    "aniversario_marco":      0,  # TROCAR AQUI
-    "aniversario_abril":      0,  # TROCAR AQUI
-    "aniversario_maio":       0,  # TROCAR AQUI
-    "aniversario_junho":      0,  # TROCAR AQUI
-    "aniversario_julho":      0,  # TROCAR AQUI
-    "aniversario_agosto":     0,  # TROCAR AQUI
-    "aniversario_setembro":   0,  # TROCAR AQUI
-    "aniversario_outubro":    0,  # TROCAR AQUI
-    "aniversario_novembro":   0,  # TROCAR AQUI
-    "aniversario_dezembro":   0,  # TROCAR AQUI
+    "aniversario_janeiro":    0,
+    "aniversario_fevereiro":  0,
+    "aniversario_marco":      0,
+    "aniversario_abril":      0,
+    "aniversario_maio":       0,
+    "aniversario_junho":      0,
+    "aniversario_julho":      0,
+    "aniversario_agosto":     0,
+    "aniversario_setembro":   0,
+    "aniversario_outubro":    0,
+    "aniversario_novembro":   0,
+    "aniversario_dezembro":   0,
     # Gravações
-    "gravacoes_participa":      0,  # TROCAR AQUI
-    "gravacoes_nao_participa":  0,  # TROCAR AQUI
+    "gravacoes_participa":      0,
+    "gravacoes_nao_participa":  0,
     # Dispositivo
-    "dispositivo_mobile":   0,  # TROCAR AQUI
-    "dispositivo_pc":       0,  # TROCAR AQUI
-    "dispositivo_console":  0,  # TROCAR AQUI
+    "dispositivo_mobile":   0,
+    "dispositivo_pc":       0,
+    "dispositivo_console":  0,
+}
+
+# cargo_key -> (nome do cargo, cor hex) usados SÓ quando Pink precisa criar
+# o cargo automaticamente (ou seja, quando o ID em CARGOS_REGISTRO acima
+# está em 0 e o cargo ainda não foi criado antes). Pode editar o nome e a
+# cor à vontade antes de rodar o bot pela primeira vez.
+CARGOS_REGISTRO_AUTO: dict[str, tuple[str, int]] = {
+    # Verificação
+    "verificacao_menino":   ("Menino", 0x3498DB),
+    "verificacao_menina":   ("Menina", 0xE91E63),
+    "verificacao_menor18":  ("-18", 0x95A5A6),
+    "verificacao_maior18":  ("+18", 0xE74C3C),
+    # Gênero
+    "genero_menina":               ("Gênero: Menina", 0xE91E63),
+    "genero_menino":               ("Gênero: Menino", 0x3498DB),
+    "genero_prefiro_nao_dizer":    ("Gênero: Prefiro Não Dizer", 0x95A5A6),
+    # Sexualidade
+    "sexualidade_hetero":              ("Hétero", 0x5DADE2),
+    "sexualidade_lgbt":                ("LGBTQI+", 0xE056FD),
+    "sexualidade_prefiro_nao_dizer":   ("Sexualidade: Prefiro Não Dizer", 0x95A5A6),
+    # Aniversário
+    "aniversario_janeiro":    ("Aniversário: Janeiro", 0x3498DB),
+    "aniversario_fevereiro":  ("Aniversário: Fevereiro", 0xE91E63),
+    "aniversario_marco":      ("Aniversário: Março", 0x2ECC71),
+    "aniversario_abril":      ("Aniversário: Abril", 0xF7DC6F),
+    "aniversario_maio":       ("Aniversário: Maio", 0xFF69B4),
+    "aniversario_junho":      ("Aniversário: Junho", 0xF4D03F),
+    "aniversario_julho":      ("Aniversário: Julho", 0xF1C40F),
+    "aniversario_agosto":     ("Aniversário: Agosto", 0xE67E22),
+    "aniversario_setembro":   ("Aniversário: Setembro", 0x58D68D),
+    "aniversario_outubro":    ("Aniversário: Outubro", 0xD35400),
+    "aniversario_novembro":   ("Aniversário: Novembro", 0xA0522D),
+    "aniversario_dezembro":   ("Aniversário: Dezembro", 0xC0392B),
+    # Gravações
+    "gravacoes_participa":      ("Participa de Gravações", 0x2ECC71),
+    "gravacoes_nao_participa":  ("Não Participa de Gravações", 0xE74C3C),
+    # Dispositivo (também usado pelas opções de PC/Celular da Verificação)
+    "dispositivo_mobile":   ("Mobile", 0x1ABC9C),
+    "dispositivo_pc":       ("PC", 0x2ECC71),
+    "dispositivo_console":  ("Console", 0x9B59B6),
 }
 
 # cada painel: chave interna, título, descrição e lista de opções
@@ -162,8 +214,8 @@ PAINEIS_REGISTRO: list[dict] = [
             ("🚺", "Menina", "verificacao_menina"),
             ("🧒", "-18", "verificacao_menor18"),
             ("🔞", "+18", "verificacao_maior18"),
-            ("💻", "Computador", "verificacao_pc"),
-            ("📱", "Celular", "verificacao_celular"),
+            ("💻", "Computador", "dispositivo_pc"),
+            ("📱", "Celular", "dispositivo_mobile"),
         ],
     },
     {
@@ -348,6 +400,22 @@ def _carregar_registro() -> dict:
 
 def _salvar_registro(data: dict):
     with open(REGISTRO_DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def _carregar_cargos_registro() -> dict:
+    """cargo_key -> ID do cargo que Pink criou sozinha (auto-criação)."""
+    if os.path.exists(CARGOS_REGISTRO_FILE):
+        try:
+            with open(CARGOS_REGISTRO_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+
+def _salvar_cargos_registro(data: dict):
+    with open(CARGOS_REGISTRO_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
@@ -2111,15 +2179,21 @@ class AuditoriaCog(commands.Cog, name="Auditoria"):
 #   1) quando o bot liga, ele confere REGISTRO_DATA_FILE pra ver quais
 #      painéis (de PAINEIS_REGISTRO) já foram enviados no canal
 #      CANAL_REGISTRO_ID;
-#   2) manda só os que faltam, na ordem em que estão na lista, e
-#      guarda o ID de cada mensagem enviada nesse arquivo;
-#   3) a partir daí, reagir com o emoji de uma opção dá o cargo
+#   2) antes de mandar os painéis que faltam, Pink garante que todo
+#      cargo usado neles existe: se o ID em CARGOS_REGISTRO estiver em
+#      0 e o cargo ainda não tiver sido criado por ela antes (ver
+#      CARGOS_REGISTRO_FILE), ela cria o cargo sozinha (nome e cor
+#      vêm de CARGOS_REGISTRO_AUTO) e guarda o ID gerado;
+#   3) manda só os painéis que faltam, na ordem em que estão na lista,
+#      e guarda o ID de cada mensagem enviada em REGISTRO_DATA_FILE;
+#   4) a partir daí, reagir com o emoji de uma opção dá o cargo
 #      correspondente; tirar a reação remove o cargo;
-#   4) se você desligar e ligar o bot de novo, ele não manda os
-#      painéis outra vez — só os que ainda não tiverem sido enviados
-#      (por exemplo, se você adicionar um painel novo na lista depois).
+#   5) se você desligar e ligar o bot de novo, ele não manda os
+#      painéis nem recria os cargos outra vez — só o que ainda não
+#      tiver sido feito (por exemplo, se você adicionar um painel novo
+#      na lista depois).
 #
-# Isso é feito olhando o arquivo de dados, não o histórico do canal —
+# Isso é feito olhando os arquivos de dados, não o histórico do canal —
 # então mesmo que alguém apague o painel do Discord sem querer, o bot
 # não vai reenviar sozinho (edite/apague a entrada em
 # REGISTRO_DATA_FILE manualmente se quiser forçar o reenvio de um
@@ -2131,6 +2205,7 @@ class RegistroCog(commands.Cog, name="Registro"):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.data = _carregar_registro()
+        self.cargos_criados = _carregar_cargos_registro()  # cargo_key -> ID criado por Pink
         self._checado = False  # evita reprocessar em reconexões dentro do mesmo processo
 
     # ── Helpers ─────────────────────────────────────────
@@ -2144,10 +2219,52 @@ class RegistroCog(commands.Cog, name="Registro"):
                 return chave, self._painel_por_chave(chave)
         return None, None
 
+    def _resolver_cargo_id(self, cargo_key: str) -> int:
+        """ID a usar pro cargo: manual (CARGOS_REGISTRO) tem prioridade;
+        senão usa o ID que Pink já criou sozinha antes; senão é 0 (ainda
+        não existe)."""
+        manual = CARGOS_REGISTRO.get(cargo_key, 0)
+        if manual:
+            return manual
+        return self.cargos_criados.get(cargo_key, 0)
+
+    async def _garantir_cargos(self, guild: discord.Guild):
+        """Cria automaticamente qualquer cargo de registro que ainda não
+        exista (ID 0 em CARGOS_REGISTRO e nunca criado por Pink antes)."""
+        for painel in PAINEIS_REGISTRO:
+            for _emoji, _label, cargo_key in painel["opcoes"]:
+                if self._resolver_cargo_id(cargo_key):
+                    continue  # já tem ID manual, ou Pink já criou esse antes
+
+                nome, cor = CARGOS_REGISTRO_AUTO.get(cargo_key, (cargo_key, COR_NEUTRA))
+
+                # o mesmo cargo pode ser referenciado por mais de um painel
+                # (ex.: "dispositivo_pc" aparece em Verificação e Dispositivo)
+                # — sem essa checagem, o loop tentaria criar duas vezes.
+                if cargo_key in self.cargos_criados:
+                    continue
+
+                try:
+                    cargo = await guild.create_role(
+                        name=nome,
+                        colour=discord.Colour(cor),
+                        reason="Pink: criação automática de cargo do módulo de Registro",
+                    )
+                except discord.Forbidden:
+                    print(f"⚠️ Registro: sem permissão pra criar o cargo '{nome}' ({cargo_key})")
+                    continue
+                except discord.HTTPException as e:
+                    print(f"⚠️ Registro: erro ao criar o cargo '{nome}' ({cargo_key}) — {e}")
+                    continue
+
+                self.cargos_criados[cargo_key] = cargo.id
+                _salvar_cargos_registro(self.cargos_criados)
+                await asyncio.sleep(0.3)  # respiro entre criações, evita rate limit
+
     def _montar_embed_painel(self, guild: discord.Guild, painel: dict) -> discord.Embed:
         linhas = []
         for emoji, label, cargo_key in painel["opcoes"]:
-            cargo_id = CARGOS_REGISTRO.get(cargo_key, 0)
+            cargo_id = self._resolver_cargo_id(cargo_key)
             cargo = guild.get_role(cargo_id) if cargo_id else None
             alvo = cargo.mention if cargo else f"`{label}` *(cargo não configurado)*"
             linhas.append(f"{emoji} {alvo}")
@@ -2172,6 +2289,8 @@ class RegistroCog(commands.Cog, name="Registro"):
 
     async def _enviar_paineis_pendentes(self, canal: discord.abc.Messageable) -> int:
         """Manda só os painéis que ainda não foram enviados nesse canal. Retorna quantos mandou."""
+        await self._garantir_cargos(canal.guild)
+
         enviados_agora = 0
         for painel in PAINEIS_REGISTRO:
             if painel["chave"] in self.data["enviados"]:
@@ -2222,7 +2341,7 @@ class RegistroCog(commands.Cog, name="Registro"):
             return
 
         _emoji, _label, cargo_key = opcao
-        cargo_id = CARGOS_REGISTRO.get(cargo_key, 0)
+        cargo_id = self._resolver_cargo_id(cargo_key)
         if not cargo_id:
             return
         cargo = payload.member.guild.get_role(cargo_id)
@@ -2257,7 +2376,7 @@ class RegistroCog(commands.Cog, name="Registro"):
             return
 
         _emoji, _label, cargo_key = opcao
-        cargo_id = CARGOS_REGISTRO.get(cargo_key, 0)
+        cargo_id = self._resolver_cargo_id(cargo_key)
         if not cargo_id:
             return
         cargo = guild.get_role(cargo_id)
@@ -2274,7 +2393,8 @@ class RegistroCog(commands.Cog, name="Registro"):
     @commands.command(name="painelregistro")
     @commands.has_permissions(administrator=True)
     async def painel_registro(self, ctx: commands.Context):
-        """Manda manualmente os painéis de registro que ainda não foram enviados. Uso: pk!painelregistro"""
+        """Manda manualmente os painéis de registro que ainda não foram enviados
+        (e cria os cargos que faltarem). Uso: pk!painelregistro"""
         if not CANAL_REGISTRO_ID:
             await ctx.send(embed=embed_erro("CANAL_REGISTRO_ID não está configurado no código."))
             return
@@ -2288,6 +2408,33 @@ class RegistroCog(commands.Cog, name="Registro"):
             await ctx.send(fala("todos os painéis de registro já foram enviados nesse canal antes. 💀"))
         else:
             await ctx.send(embed=embed_ok("✅ Painéis publicados!!", f"{qtd} painel(is) de registro enviado(s) em {canal.mention}."))
+
+    @commands.command(name="recriarcargosregistro", aliases=["fixcargos"])
+    @commands.has_permissions(administrator=True)
+    async def recriar_cargos(self, ctx: commands.Context):
+        """Cria (ou verifica) os cargos de registro e atualiza os painéis já enviados.
+        Use se algum painel ainda mostrar 'cargo não configurado'. Uso: pk!recriarcargosregistro"""
+        await self._garantir_cargos(ctx.guild)
+
+        atualizados = 0
+        for chave, info in list(self.data["enviados"].items()):
+            painel = self._painel_por_chave(chave)
+            if painel is None:
+                continue
+            canal = ctx.guild.get_channel(info.get("canal_id"))
+            if canal is None:
+                continue
+            try:
+                mensagem = await canal.fetch_message(info["message_id"])
+                await mensagem.edit(embed=self._montar_embed_painel(ctx.guild, painel))
+                atualizados += 1
+            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                continue
+
+        await ctx.send(embed=embed_ok(
+            "✅ Cargos verificados!!",
+            f"cargos criados/confirmados e {atualizados} painel(is) atualizado(s) com os cargos certos."
+        ))
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -2355,8 +2502,10 @@ async def pink_help(ctx: commands.Context):
         value=(
             "painéis de reação (verificação, gênero, sexualidade, aniversário, "
             "gravações, dispositivo) publicados automaticamente e só uma vez!!\n"
+            "os cargos são criados automaticamente por Pink na primeira vez.\n"
             "reaja pra pegar o cargo, tire a reação pra perder.\n"
-            "`pk!painelregistro` — manda manualmente os painéis que faltam (admin)"
+            "`pk!painelregistro` — manda manualmente os painéis que faltam (admin)\n"
+            "`pk!recriarcargosregistro` — cria/verifica os cargos e atualiza os painéis (admin)"
         )
     )
     embed.add_field(
