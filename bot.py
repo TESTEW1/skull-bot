@@ -127,9 +127,6 @@ CARGOS_REGISTRO: dict[str, int] = {
     "verificacao_menina":    0,
     "verificacao_menor18":   0,
     "verificacao_maior18":   0,
-    # (computador/celular da Verificação usam os MESMOS cargos do painel
-    # de Dispositivo — "dispositivo_pc" e "dispositivo_mobile" — pra não
-    # criar dois cargos diferentes pra a mesma coisa)
     # Gênero
     "genero_menina":              0,
     "genero_menino":              0,
@@ -208,14 +205,12 @@ PAINEIS_REGISTRO: list[dict] = [
     {
         "chave": "verificacao",
         "titulo": "🧭 Verificação",
-        "descricao": "Verificação básica: sexo, idade e de onde você acessa o servidor.",
+        "descricao": "Verificação básica: sexo e idade.",
         "opcoes": [
             ("🚹", "Menino", "verificacao_menino"),
             ("🚺", "Menina", "verificacao_menina"),
             ("🧒", "-18", "verificacao_menor18"),
             ("🔞", "+18", "verificacao_maior18"),
-            ("💻", "Computador", "dispositivo_pc"),
-            ("📱", "Celular", "dispositivo_mobile"),
         ],
     },
     {
@@ -2193,11 +2188,14 @@ class AuditoriaCog(commands.Cog, name="Auditoria"):
 #      tiver sido feito (por exemplo, se você adicionar um painel novo
 #      na lista depois).
 #
-# Isso é feito olhando os arquivos de dados, não o histórico do canal —
-# então mesmo que alguém apague o painel do Discord sem querer, o bot
-# não vai reenviar sozinho (edite/apague a entrada em
-# REGISTRO_DATA_FILE manualmente se quiser forçar o reenvio de um
-# painel específico, ou use pk!painelregistro).
+# Isso é feito olhando os arquivos de dados (REGISTRO_DATA_FILE), não o
+# histórico do canal — então mesmo que alguém apague o painel do
+# Discord sem querer, o bot não vai reenviar sozinho. Se você editar
+# um painel já enviado (mudar as opções dele em PAINEIS_REGISTRO, por
+# exemplo), o bot também NÃO manda uma mensagem nova — ele mantém a
+# mesma mensagem e só atualiza o embed/as reações dela quando você
+# rodar `pk!recriarcargosregistro`, exatamente pra evitar reenviar
+# tudo de novo quando o bot é atualizado.
 
 class RegistroCog(commands.Cog, name="Registro"):
     """Painéis de reação (reaction role) enviados uma única vez por painel."""
@@ -2286,6 +2284,30 @@ class RegistroCog(commands.Cog, name="Registro"):
             except (discord.Forbidden, discord.HTTPException):
                 pass
         return mensagem
+
+    async def _sincronizar_reacoes(self, mensagem: discord.Message, painel: dict):
+        """Ajusta as reações de uma mensagem já enviada pra bater com as
+        opções atuais do painel: tira reações de opções que não existem
+        mais e adiciona as que faltam. Não reenvia a mensagem."""
+        emojis_atuais = {emoji for emoji, _label, _cargo_key in painel["opcoes"]}
+
+        # tenta usar a mensagem já com as reações carregadas; se não tiver
+        # vindo populada (ex.: mensagem antiga buscada agora), busca de novo
+        emojis_existentes = {str(r.emoji) for r in mensagem.reactions}
+
+        for emoji_str in emojis_existentes - emojis_atuais:
+            try:
+                await mensagem.clear_reaction(emoji_str)
+            except (discord.Forbidden, discord.HTTPException) as e:
+                print(f"⚠️ Registro: não consegui remover a reação '{emoji_str}' — {e}")
+
+        for emoji, _label, _cargo_key in painel["opcoes"]:
+            if emoji not in emojis_existentes:
+                try:
+                    await mensagem.add_reaction(emoji)
+                except (discord.Forbidden, discord.HTTPException) as e:
+                    print(f"⚠️ Registro: não consegui adicionar a reação '{emoji}' — {e}")
+                await asyncio.sleep(0.3)
 
     async def _enviar_paineis_pendentes(self, canal: discord.abc.Messageable) -> int:
         """Manda só os painéis que ainda não foram enviados nesse canal. Retorna quantos mandou."""
@@ -2412,8 +2434,13 @@ class RegistroCog(commands.Cog, name="Registro"):
     @commands.command(name="recriarcargosregistro", aliases=["fixcargos"])
     @commands.has_permissions(administrator=True)
     async def recriar_cargos(self, ctx: commands.Context):
-        """Cria (ou verifica) os cargos de registro e atualiza os painéis já enviados.
-        Use se algum painel ainda mostrar 'cargo não configurado'. Uso: pk!recriarcargosregistro"""
+        """Cria (ou verifica) os cargos de registro, atualiza os embeds dos
+        painéis já enviados e sincroniza as reações deles com as opções
+        atuais (remove reação de opção removida, adiciona a que faltar).
+        NÃO manda painel novo nem reenvia mensagem — só ajusta o que já
+        está lá. Use se algum painel ainda mostrar 'cargo não configurado'
+        ou se você mudou as opções de um painel no código.
+        Uso: pk!recriarcargosregistro"""
         await self._garantir_cargos(ctx.guild)
 
         atualizados = 0
@@ -2427,13 +2454,14 @@ class RegistroCog(commands.Cog, name="Registro"):
             try:
                 mensagem = await canal.fetch_message(info["message_id"])
                 await mensagem.edit(embed=self._montar_embed_painel(ctx.guild, painel))
+                await self._sincronizar_reacoes(mensagem, painel)
                 atualizados += 1
             except (discord.NotFound, discord.Forbidden, discord.HTTPException):
                 continue
 
         await ctx.send(embed=embed_ok(
             "✅ Cargos verificados!!",
-            f"cargos criados/confirmados e {atualizados} painel(is) atualizado(s) com os cargos certos."
+            f"cargos criados/confirmados e {atualizados} painel(is) atualizado(s) (embed + reações) com as opções certas."
         ))
 
 
@@ -2505,7 +2533,7 @@ async def pink_help(ctx: commands.Context):
             "os cargos são criados automaticamente por Pink na primeira vez.\n"
             "reaja pra pegar o cargo, tire a reação pra perder.\n"
             "`pk!painelregistro` — manda manualmente os painéis que faltam (admin)\n"
-            "`pk!recriarcargosregistro` — cria/verifica os cargos e atualiza os painéis (admin)"
+            "`pk!recriarcargosregistro` — cria/verifica os cargos e sincroniza embed + reações dos painéis já enviados (admin)"
         )
     )
     embed.add_field(
