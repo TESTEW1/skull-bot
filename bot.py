@@ -91,6 +91,142 @@ CARGO_VINCULADO_ID = 0   # TROCAR AQUI — ...Pink dá esse cargo junto, automat
 CANAL_AUDITORIA_ID = 0   # TROCAR AQUI — canal onde os logs de auditoria são postados
 
 # ══════════════════════════════════════════════════════════════════
+#  ⚙️  CONFIGURAÇÕES — REGISTRO (painéis de reação pra pegar cargo)
+# ══════════════════════════════════════════════════════════════════
+#
+# Cada painel abaixo é enviado UMA ÚNICA VEZ no canal configurado —
+# a primeira vez que o bot ligar com esse canal configurado e sem ter
+# mandado esse painel ainda. Se você desligar e ligar o bot de novo,
+# ele NÃO manda de novo (o controle fica salvo em REGISTRO_DATA_FILE).
+# Reagir com o emoji dá o cargo, tirar a reação remove o cargo — igual
+# ao "reaction role" clássico.
+#
+# Pra cada cargo abaixo, troque o "0" pelo ID real do cargo no seu
+# servidor (Discord > Configurações do servidor > Cargos > clique
+# direito > Copiar ID, com o modo desenvolvedor ativado).
+
+CANAL_REGISTRO_ID = 1543317542234488942  # canal onde os painéis de registro são publicados
+
+REGISTRO_DATA_FILE = "pink_registro.json"
+
+# chave do cargo -> ID do cargo no servidor — TROCAR AQUI (todos estão em 0)
+CARGOS_REGISTRO: dict[str, int] = {
+    # Verificação
+    "verificacao_menino":    0,  # TROCAR AQUI
+    "verificacao_menina":    0,  # TROCAR AQUI
+    "verificacao_menor18":   0,  # TROCAR AQUI
+    "verificacao_maior18":   0,  # TROCAR AQUI
+    "verificacao_pc":        0,  # TROCAR AQUI
+    "verificacao_celular":   0,  # TROCAR AQUI
+    # Gênero
+    "genero_menina":              0,  # TROCAR AQUI
+    "genero_menino":              0,  # TROCAR AQUI
+    "genero_prefiro_nao_dizer":   0,  # TROCAR AQUI
+    # Sexualidade
+    "sexualidade_hetero":             0,  # TROCAR AQUI
+    "sexualidade_lgbt":               0,  # TROCAR AQUI
+    "sexualidade_prefiro_nao_dizer":  0,  # TROCAR AQUI
+    # Aniversário
+    "aniversario_janeiro":    0,  # TROCAR AQUI
+    "aniversario_fevereiro":  0,  # TROCAR AQUI
+    "aniversario_marco":      0,  # TROCAR AQUI
+    "aniversario_abril":      0,  # TROCAR AQUI
+    "aniversario_maio":       0,  # TROCAR AQUI
+    "aniversario_junho":      0,  # TROCAR AQUI
+    "aniversario_julho":      0,  # TROCAR AQUI
+    "aniversario_agosto":     0,  # TROCAR AQUI
+    "aniversario_setembro":   0,  # TROCAR AQUI
+    "aniversario_outubro":    0,  # TROCAR AQUI
+    "aniversario_novembro":   0,  # TROCAR AQUI
+    "aniversario_dezembro":   0,  # TROCAR AQUI
+    # Gravações
+    "gravacoes_participa":      0,  # TROCAR AQUI
+    "gravacoes_nao_participa":  0,  # TROCAR AQUI
+    # Dispositivo
+    "dispositivo_mobile":   0,  # TROCAR AQUI
+    "dispositivo_pc":       0,  # TROCAR AQUI
+    "dispositivo_console":  0,  # TROCAR AQUI
+}
+
+# cada painel: chave interna, título, descrição e lista de opções
+# (emoji, rótulo, chave do cargo em CARGOS_REGISTRO). Pode trocar os
+# emojis à vontade — só não repita o mesmo emoji duas vezes dentro do
+# MESMO painel.
+PAINEIS_REGISTRO: list[dict] = [
+    {
+        "chave": "verificacao",
+        "titulo": "🧭 Verificação",
+        "descricao": "Verificação básica: sexo, idade e de onde você acessa o servidor.",
+        "opcoes": [
+            ("🚹", "Menino", "verificacao_menino"),
+            ("🚺", "Menina", "verificacao_menina"),
+            ("🧒", "-18", "verificacao_menor18"),
+            ("🔞", "+18", "verificacao_maior18"),
+            ("💻", "Computador", "verificacao_pc"),
+            ("📱", "Celular", "verificacao_celular"),
+        ],
+    },
+    {
+        "chave": "genero",
+        "titulo": "⚧️ Gênero",
+        "descricao": "Marque como você se identifica.",
+        "opcoes": [
+            ("👧", "Menina", "genero_menina"),
+            ("👦", "Menino", "genero_menino"),
+            ("❔", "Prefiro Não Dizer", "genero_prefiro_nao_dizer"),
+        ],
+    },
+    {
+        "chave": "sexualidade",
+        "titulo": "🌈 Sexualidade",
+        "descricao": "Marque sua orientação, se quiser dizer.",
+        "opcoes": [
+            ("👫", "Hétero", "sexualidade_hetero"),
+            ("🏳️‍🌈", "LGBTQI+", "sexualidade_lgbt"),
+            ("❓", "Prefiro Não Dizer", "sexualidade_prefiro_nao_dizer"),
+        ],
+    },
+    {
+        "chave": "aniversario",
+        "titulo": "🎂 Aniversário",
+        "descricao": "Marque o mês do seu aniversário.",
+        "opcoes": [
+            ("🎆", "Janeiro", "aniversario_janeiro"),
+            ("💘", "Fevereiro", "aniversario_fevereiro"),
+            ("🍀", "Março", "aniversario_marco"),
+            ("🐣", "Abril", "aniversario_abril"),
+            ("🌷", "Maio", "aniversario_maio"),
+            ("🌽", "Junho", "aniversario_junho"),
+            ("☀️", "Julho", "aniversario_julho"),
+            ("🎈", "Agosto", "aniversario_agosto"),
+            ("🍃", "Setembro", "aniversario_setembro"),
+            ("🎃", "Outubro", "aniversario_outubro"),
+            ("🍁", "Novembro", "aniversario_novembro"),
+            ("🎄", "Dezembro", "aniversario_dezembro"),
+        ],
+    },
+    {
+        "chave": "gravacoes",
+        "titulo": "🎬 Gravações",
+        "descricao": "Diz se você participa de gravações do servidor ou não.",
+        "opcoes": [
+            ("🎬", "Participa de Gravações", "gravacoes_participa"),
+            ("🚫", "Não Participa de Gravações", "gravacoes_nao_participa"),
+        ],
+    },
+    {
+        "chave": "dispositivo",
+        "titulo": "📡 Dispositivo",
+        "descricao": "De onde você acessa o servidor.",
+        "opcoes": [
+            ("📱", "Mobile", "dispositivo_mobile"),
+            ("💻", "Pc", "dispositivo_pc"),
+            ("🎮", "Console", "dispositivo_console"),
+        ],
+    },
+]
+
+# ══════════════════════════════════════════════════════════════════
 #  🤖  SETUP DO BOT
 # ══════════════════════════════════════════════════════════════════
 
@@ -194,6 +330,24 @@ def _carregar_grupos() -> dict:
 
 def _salvar_grupos(data: dict):
     with open(GRUPOS_DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def _carregar_registro() -> dict:
+    if os.path.exists(REGISTRO_DATA_FILE):
+        try:
+            with open(REGISTRO_DATA_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if "enviados" not in data:
+                    data = {"enviados": {}}
+                return data
+        except Exception:
+            pass
+    return {"enviados": {}}
+
+
+def _salvar_registro(data: dict):
+    with open(REGISTRO_DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
@@ -1950,6 +2104,193 @@ class AuditoriaCog(commands.Cog, name="Auditoria"):
 
 
 # ══════════════════════════════════════════════════════════════════
+#  📥  MÓDULO DE REGISTRO — painéis de reação pra pegar cargo
+# ══════════════════════════════════════════════════════════════════
+#
+# Como funciona:
+#   1) quando o bot liga, ele confere REGISTRO_DATA_FILE pra ver quais
+#      painéis (de PAINEIS_REGISTRO) já foram enviados no canal
+#      CANAL_REGISTRO_ID;
+#   2) manda só os que faltam, na ordem em que estão na lista, e
+#      guarda o ID de cada mensagem enviada nesse arquivo;
+#   3) a partir daí, reagir com o emoji de uma opção dá o cargo
+#      correspondente; tirar a reação remove o cargo;
+#   4) se você desligar e ligar o bot de novo, ele não manda os
+#      painéis outra vez — só os que ainda não tiverem sido enviados
+#      (por exemplo, se você adicionar um painel novo na lista depois).
+#
+# Isso é feito olhando o arquivo de dados, não o histórico do canal —
+# então mesmo que alguém apague o painel do Discord sem querer, o bot
+# não vai reenviar sozinho (edite/apague a entrada em
+# REGISTRO_DATA_FILE manualmente se quiser forçar o reenvio de um
+# painel específico, ou use pk!painelregistro).
+
+class RegistroCog(commands.Cog, name="Registro"):
+    """Painéis de reação (reaction role) enviados uma única vez por painel."""
+
+    def __init__(self, bot: commands.Bot):
+        self.bot = bot
+        self.data = _carregar_registro()
+        self._checado = False  # evita reprocessar em reconexões dentro do mesmo processo
+
+    # ── Helpers ─────────────────────────────────────────
+
+    def _painel_por_chave(self, chave: str) -> dict | None:
+        return next((p for p in PAINEIS_REGISTRO if p["chave"] == chave), None)
+
+    def _achar_painel_por_mensagem(self, message_id: int):
+        for chave, info in self.data["enviados"].items():
+            if info.get("message_id") == message_id:
+                return chave, self._painel_por_chave(chave)
+        return None, None
+
+    def _montar_embed_painel(self, guild: discord.Guild, painel: dict) -> discord.Embed:
+        linhas = []
+        for emoji, label, cargo_key in painel["opcoes"]:
+            cargo_id = CARGOS_REGISTRO.get(cargo_key, 0)
+            cargo = guild.get_role(cargo_id) if cargo_id else None
+            alvo = cargo.mention if cargo else f"`{label}` *(cargo não configurado)*"
+            linhas.append(f"{emoji} {alvo}")
+
+        embed = discord.Embed(
+            title=painel["titulo"],
+            description=f"{painel['descricao']}\n\n" + "\n".join(linhas),
+            color=COR_NEUTRA,
+        )
+        embed.set_footer(text="👽 Reaja pra pegar o cargo • tire a reação pra perder")
+        return embed
+
+    async def _enviar_painel(self, canal: discord.abc.Messageable, painel: dict) -> discord.Message:
+        embed = self._montar_embed_painel(canal.guild, painel)
+        mensagem = await canal.send(embed=embed)
+        for emoji, _label, _cargo_key in painel["opcoes"]:
+            try:
+                await mensagem.add_reaction(emoji)
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+        return mensagem
+
+    async def _enviar_paineis_pendentes(self, canal: discord.abc.Messageable) -> int:
+        """Manda só os painéis que ainda não foram enviados nesse canal. Retorna quantos mandou."""
+        enviados_agora = 0
+        for painel in PAINEIS_REGISTRO:
+            if painel["chave"] in self.data["enviados"]:
+                continue  # já foi enviado uma vez — não manda de novo
+            mensagem = await self._enviar_painel(canal, painel)
+            self.data["enviados"][painel["chave"]] = {
+                "canal_id": canal.id,
+                "message_id": mensagem.id,
+            }
+            _salvar_registro(self.data)
+            enviados_agora += 1
+            await asyncio.sleep(0.5)  # respiro entre painéis, evita rate limit
+        return enviados_agora
+
+    # ── Evento: manda os painéis que faltam quando o bot liga ─────
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        if self._checado:
+            return
+        self._checado = True
+
+        if not CANAL_REGISTRO_ID:
+            return
+        canal = self.bot.get_channel(CANAL_REGISTRO_ID)
+        if canal is None:
+            print(f"⚠️ Registro: não encontrei o canal {CANAL_REGISTRO_ID}")
+            return
+
+        try:
+            await self._enviar_paineis_pendentes(canal)
+        except discord.Forbidden:
+            print(f"⚠️ Registro: sem permissão pra mandar mensagens/reações em {canal.id}")
+
+    # ── Reações -> cargo ────────────────────────────────
+
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
+        if payload.member is None or payload.member.bot:
+            return
+        _chave, painel = self._achar_painel_por_mensagem(payload.message_id)
+        if painel is None:
+            return
+
+        emoji_str = str(payload.emoji)
+        opcao = next((o for o in painel["opcoes"] if o[0] == emoji_str), None)
+        if opcao is None:
+            return
+
+        _emoji, _label, cargo_key = opcao
+        cargo_id = CARGOS_REGISTRO.get(cargo_key, 0)
+        if not cargo_id:
+            return
+        cargo = payload.member.guild.get_role(cargo_id)
+        if cargo is None:
+            print(f"⚠️ Registro: cargo '{cargo_key}' ({cargo_id}) não existe no servidor {payload.guild_id}")
+            return
+
+        try:
+            await payload.member.add_roles(cargo, reason=f"Registro: reagiu em '{_label}'")
+        except (discord.Forbidden, discord.HTTPException) as e:
+            print(f"⚠️ Registro: não consegui dar o cargo '{cargo_key}' — {e}")
+
+    @commands.Cog.listener()
+    async def on_raw_reaction_remove(self, payload: discord.RawReactionActionEvent):
+        # em remoções o Discord não manda o objeto Member completo, só o user_id
+        if payload.user_id == self.bot.user.id:
+            return
+        _chave, painel = self._achar_painel_por_mensagem(payload.message_id)
+        if painel is None:
+            return
+
+        guild = self.bot.get_guild(payload.guild_id)
+        if guild is None:
+            return
+        membro = guild.get_member(payload.user_id)
+        if membro is None:
+            return
+
+        emoji_str = str(payload.emoji)
+        opcao = next((o for o in painel["opcoes"] if o[0] == emoji_str), None)
+        if opcao is None:
+            return
+
+        _emoji, _label, cargo_key = opcao
+        cargo_id = CARGOS_REGISTRO.get(cargo_key, 0)
+        if not cargo_id:
+            return
+        cargo = guild.get_role(cargo_id)
+        if cargo is None:
+            return
+
+        try:
+            await membro.remove_roles(cargo, reason=f"Registro: tirou a reação de '{_label}'")
+        except (discord.Forbidden, discord.HTTPException) as e:
+            print(f"⚠️ Registro: não consegui remover o cargo '{cargo_key}' — {e}")
+
+    # ── Comando manual (admin) — só manda o que ainda falta ───────
+
+    @commands.command(name="painelregistro")
+    @commands.has_permissions(administrator=True)
+    async def painel_registro(self, ctx: commands.Context):
+        """Manda manualmente os painéis de registro que ainda não foram enviados. Uso: pk!painelregistro"""
+        if not CANAL_REGISTRO_ID:
+            await ctx.send(embed=embed_erro("CANAL_REGISTRO_ID não está configurado no código."))
+            return
+        canal = ctx.guild.get_channel(CANAL_REGISTRO_ID)
+        if canal is None:
+            await ctx.send(embed=embed_erro("não encontrei o canal de registro configurado."))
+            return
+
+        qtd = await self._enviar_paineis_pendentes(canal)
+        if qtd == 0:
+            await ctx.send(fala("todos os painéis de registro já foram enviados nesse canal antes. 💀"))
+        else:
+            await ctx.send(embed=embed_ok("✅ Painéis publicados!!", f"{qtd} painel(is) de registro enviado(s) em {canal.mention}."))
+
+
+# ══════════════════════════════════════════════════════════════════
 #  📋  COMANDOS GERAIS (fora do cog)
 # ══════════════════════════════════════════════════════════════════
 
@@ -2006,6 +2347,16 @@ async def pink_help(ctx: commands.Context):
             "`pk!parceria <mapa|comercial|dj|cla|comunidade>` — fichas de parceria\n"
             "`pk!fichas` — lista todas as fichas disponíveis\n"
             "*(formulário interativo: preenche, confere e confirma antes de enviar!!)*"
+        )
+    )
+    embed.add_field(
+        name="📥 Registro",
+        inline=False,
+        value=(
+            "painéis de reação (verificação, gênero, sexualidade, aniversário, "
+            "gravações, dispositivo) publicados automaticamente e só uma vez!!\n"
+            "reaja pra pegar o cargo, tire a reação pra perder.\n"
+            "`pk!painelregistro` — manda manualmente os painéis que faltam (admin)"
         )
     )
     embed.add_field(
@@ -2103,6 +2454,7 @@ async def _main():
         await bot.add_cog(CargoVinculadoCog(bot))
         await bot.add_cog(FichasCog(bot))
         await bot.add_cog(AuditoriaCog(bot))
+        await bot.add_cog(RegistroCog(bot))
         if not TOKEN:
             print("❌ ERRO: token não encontrado! Crie um .env com PINK_TOKEN=seu_token")
             return
