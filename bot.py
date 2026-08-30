@@ -123,8 +123,6 @@ CARGOS_REGISTRO_FILE   = "pink_cargos_registro.json"  # guarda os IDs dos cargos
 # cargo pronto que quer reaproveitar.
 CARGOS_REGISTRO: dict[str, int] = {
     # Verificação
-    "verificacao_menino":    0,
-    "verificacao_menina":    0,
     "verificacao_menor18":   0,
     "verificacao_maior18":   0,
     # Gênero
@@ -163,8 +161,6 @@ CARGOS_REGISTRO: dict[str, int] = {
 # cor à vontade antes de rodar o bot pela primeira vez.
 CARGOS_REGISTRO_AUTO: dict[str, tuple[str, int]] = {
     # Verificação
-    "verificacao_menino":   ("Menino", 0x3498DB),
-    "verificacao_menina":   ("Menina", 0xE91E63),
     "verificacao_menor18":  ("-18", 0x95A5A6),
     "verificacao_maior18":  ("+18", 0xE74C3C),
     # Gênero
@@ -205,10 +201,8 @@ PAINEIS_REGISTRO: list[dict] = [
     {
         "chave": "verificacao",
         "titulo": "🧭 Verificação",
-        "descricao": "Verificação básica: sexo e idade.",
+        "descricao": "Verificação básica: idade.",
         "opcoes": [
-            ("🚹", "Menino", "verificacao_menino"),
-            ("🚺", "Menina", "verificacao_menina"),
             ("🧒", "-18", "verificacao_menor18"),
             ("🔞", "+18", "verificacao_maior18"),
         ],
