@@ -388,8 +388,10 @@ def _carregar_registro() -> dict:
                 if "enviados" not in data:
                     data = {"enviados": {}}
                 return data
-        except Exception:
-            pass
+        except Exception as e:
+            # antes isso era engolido em silêncio — agora loga, pra dar pra
+            # saber no console se o arquivo sumiu/corrompeu num restart
+            print(f"⚠️ Registro: falha ao carregar {REGISTRO_DATA_FILE} — {e}")
     return {"enviados": {}}
 
 
@@ -404,8 +406,8 @@ def _carregar_cargos_registro() -> dict:
         try:
             with open(CARGOS_REGISTRO_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"⚠️ Registro: falha ao carregar {CARGOS_REGISTRO_FILE} — {e}")
     return {}
 
 
@@ -2196,6 +2198,13 @@ class AuditoriaCog(commands.Cog, name="Auditoria"):
 # mesma mensagem e só atualiza o embed/as reações dela quando você
 # rodar `pk!recriarcargosregistro`, exatamente pra evitar reenviar
 # tudo de novo quando o bot é atualizado.
+#
+# TRAVA DE SEGURANÇA (patch): além de confiar em REGISTRO_DATA_FILE,
+# antes de mandar QUALQUER painel a gente confere o histórico real do
+# canal por um embed com o mesmo título. Isso cobre o caso de o arquivo
+# de dados ter voltado vazio (host com disco efêmero, restart, arquivo
+# corrompido) — em vez de reenviar duplicado, Pink recupera o
+# message_id da mensagem que já existe e volta a rastreá-la.
 
 class RegistroCog(commands.Cog, name="Registro"):
     """Painéis de reação (reaction role) enviados uma única vez por painel."""
@@ -2309,6 +2318,19 @@ class RegistroCog(commands.Cog, name="Registro"):
                     print(f"⚠️ Registro: não consegui adicionar a reação '{emoji}' — {e}")
                 await asyncio.sleep(0.3)
 
+    async def _achar_painel_no_historico(self, canal: discord.abc.Messageable, titulo_painel: str) -> discord.Message | None:
+        """Trava de segurança: procura no histórico do canal por uma
+        mensagem nossa com esse título de embed, mesmo que
+        REGISTRO_DATA_FILE não saiba dela (ex.: arquivo voltou vazio
+        depois de um restart num host com disco efêmero)."""
+        try:
+            async for msg in canal.history(limit=100):
+                if msg.author.id == self.bot.user.id and msg.embeds and msg.embeds[0].title == titulo_painel:
+                    return msg
+        except discord.Forbidden:
+            pass
+        return None
+
     async def _enviar_paineis_pendentes(self, canal: discord.abc.Messageable) -> int:
         """Manda só os painéis que ainda não foram enviados nesse canal. Retorna quantos mandou."""
         await self._garantir_cargos(canal.guild)
@@ -2317,6 +2339,18 @@ class RegistroCog(commands.Cog, name="Registro"):
         for painel in PAINEIS_REGISTRO:
             if painel["chave"] in self.data["enviados"]:
                 continue  # já foi enviado uma vez — não manda de novo
+
+            # confere o canal antes de mandar, por segurança extra
+            existente = await self._achar_painel_no_historico(canal, painel["titulo"])
+            if existente is not None:
+                self.data["enviados"][painel["chave"]] = {
+                    "canal_id": canal.id,
+                    "message_id": existente.id,
+                }
+                _salvar_registro(self.data)
+                print(f"ℹ️ Registro: painel '{painel['chave']}' já existia no canal — recuperado do histórico, não reenviado.")
+                continue
+
             mensagem = await self._enviar_painel(canal, painel)
             self.data["enviados"][painel["chave"]] = {
                 "canal_id": canal.id,
