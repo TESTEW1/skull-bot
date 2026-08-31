@@ -24,6 +24,7 @@ Módulos:
   • Fichas        — formulários interativos (modal + confirmação) pra
                     novos membros, Staff e parcerias (mapa, comercial,
                     DJ, clã e comunidade — cada uma é sua própria ficha)
+  • Tickets       — painel de atendimento (membro, suporte, staff, parcerias)
   • Auditoria     — log total de ações do servidor num canal dedicado
 
 ⚠️  ANTES DE RODAR: procure por "TROCAR AQUI" nas configurações abaixo
@@ -268,6 +269,20 @@ PAINEIS_REGISTRO: list[dict] = [
 ]
 
 # ══════════════════════════════════════════════════════════════════
+#  ⚙️  CONFIGURAÇÕES — TICKETS (painel de atendimento)
+# ══════════════════════════════════════════════════════════════════
+
+CANAL_TICKET_ID        = 1543320826894483618  # canal onde o painel de ticket fica
+CATEGORIA_TICKET_ID    = 1543320598661570663  # categoria onde os canais de ticket entram
+CARGOS_ATENDIMENTO_IDS = [1543289318032810054, 1543293357650870364]  # cargos que podem ver/atender tickets
+
+IMAGEM_TICKET = "https://cdn.discordapp.com/attachments/926913851172204577/1543703127583367420/ChatGPT_Image_30_de_ago._de_2026_16_22_58.png?ex=6a972692&is=6a95d512&hm=89498aa36819239592b4f713c262afd9499c012cf9b0bfd2b799bf9cf78d43f6"
+
+COR_TICKET = 0x8B0000  # vermelho escuro, no estilo da referência
+
+TICKETS_DATA_FILE = "pink_tickets.json"
+
+# ══════════════════════════════════════════════════════════════════
 #  🤖  SETUP DO BOT
 # ══════════════════════════════════════════════════════════════════
 
@@ -407,6 +422,21 @@ def _carregar_cargos_registro() -> dict:
 
 def _salvar_cargos_registro(data: dict):
     with open(CARGOS_REGISTRO_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def _carregar_tickets() -> dict:
+    if os.path.exists(TICKETS_DATA_FILE):
+        try:
+            with open(TICKETS_DATA_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"⚠️ Tickets: falha ao carregar {TICKETS_DATA_FILE} — {e}")
+    return {}
+
+
+def _salvar_tickets(data: dict):
+    with open(TICKETS_DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
@@ -1694,6 +1724,312 @@ class FichasCog(commands.Cog, name="Fichas"):
 
 
 # ══════════════════════════════════════════════════════════════════
+#  🎫  MÓDULO DE TICKETS — painel de atendimento (estilo Ticket King)
+# ══════════════════════════════════════════════════════════════════
+#
+# Como funciona:
+#   1) o painel fica fixado no canal CANAL_TICKET_ID, com a imagem
+#      configurada em IMAGEM_TICKET e 4 botões: Virar Membro, Suporte,
+#      Virar Staff e Parcerias;
+#   2) ao clicar num botão, Pink cria um canal de texto privado dentro
+#      da categoria CATEGORIA_TICKET_ID, visível só pra quem abriu o
+#      ticket e pra quem tem um dos cargos em CARGOS_ATENDIMENTO_IDS
+#      (além de administradores);
+#   3) dentro do ticket tem um botão "Fechar Ticket" — só quem abriu,
+#      quem tem um cargo de atendimento, ou um administrador pode
+#      fechar;
+#   4) Pink impede que a mesma pessoa abra dois tickets do MESMO tipo
+#      ao mesmo tempo (evita canais duplicados/spam).
+#
+# O painel principal e o botão de fechar são registrados com
+# bot.add_view() e custom_id fixo, então sobrevivem a um restart do
+# bot. Uso: pk!painelticket (admin) — ou deixe Pink publicar sozinha
+# na primeira vez que ligar, igual o painel de Grupos.
+
+TIPOS_TICKET: dict[str, dict] = {
+    "membro": {
+        "label": "Virar Membro",
+        "emoji": "📜",
+        "titulo": "📜 Virar Membro",
+        "descricao": "quer entrar oficialmente pra DOMINUS? conta um pouco sobre você aqui, alguém da staff já vem te atender.",
+    },
+    "suporte": {
+        "label": "Suporte",
+        "emoji": "🎫",
+        "titulo": "🎫 Suporte",
+        "descricao": "precisa de ajuda com alguma coisa? descreve o problema aqui que a staff te atende.",
+    },
+    "staff": {
+        "label": "Virar Staff",
+        "emoji": "🛡️",
+        "titulo": "🛡️ Virar Staff",
+        "descricao": "quer se candidatar pra Staff da DOMINUS? conta suas experiências aqui, a equipe vai avaliar.",
+    },
+    "parcerias": {
+        "label": "Parcerias",
+        "emoji": "🤝",
+        "titulo": "🤝 Parcerias",
+        "descricao": "quer propor uma parceria com a DOMINUS? descreve sua proposta aqui, a staff te atende.",
+    },
+}
+
+
+def _permitido_atender(membro: discord.Member) -> bool:
+    """Só quem tem um dos cargos de atendimento (ou é admin) pode ver/gerenciar tickets."""
+    if membro.guild_permissions.administrator:
+        return True
+    cargos_membro = {r.id for r in membro.roles}
+    return any(cid in cargos_membro for cid in CARGOS_ATENDIMENTO_IDS)
+
+
+def _slug_ticket(texto: str) -> str:
+    """Vira um nome de canal válido: minúsculo, sem acento, só letras/números/hífen."""
+    import unicodedata
+    texto = texto.lower().strip()
+    texto = "".join(c for c in unicodedata.normalize("NFKD", texto) if not unicodedata.combining(c))
+    texto = re.sub(r"[^a-z0-9]+", "-", texto).strip("-")
+    return texto or "usuario"
+
+
+class FecharTicketView(discord.ui.View):
+    """Botão de fechar dentro do próprio canal do ticket. Persistente (custom_id fixo)."""
+
+    def __init__(self, cog: "TicketsCog" = None):
+        super().__init__(timeout=None)
+        self.cog = cog
+
+    def _get_cog(self, interaction: discord.Interaction) -> "TicketsCog":
+        return self.cog or interaction.client.get_cog("Tickets")
+
+    @discord.ui.button(
+        label="Fechar Ticket", emoji="🔒",
+        style=discord.ButtonStyle.danger, custom_id="tickets:fechar",
+    )
+    async def fechar(self, interaction: discord.Interaction, button: discord.ui.Button):
+        cog = self._get_cog(interaction)
+        canal_id_str = str(interaction.channel.id)
+        info = cog.data.get(canal_id_str)
+        if info is None:
+            await interaction.response.send_message("❌ esse canal não é um ticket ativo pra mim.", ephemeral=True)
+            return
+
+        eh_dono = interaction.user.id == info["owner_id"]
+        eh_staff = _permitido_atender(interaction.user)
+        if not (eh_dono or eh_staff):
+            await interaction.response.send_message("🚫 só quem abriu o ticket ou a staff pode fechar.", ephemeral=True)
+            return
+
+        await interaction.response.send_message(fala("fechando esse ticket em 5 segundos... 💀"))
+        cog.data.pop(canal_id_str, None)
+        _salvar_tickets(cog.data)
+        await asyncio.sleep(5)
+        try:
+            await interaction.channel.delete(reason=f"Ticket fechado por {interaction.user}")
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+
+
+class PainelTicketView(discord.ui.View):
+    """Painel principal com os 4 botões de abertura de ticket. Persistente (custom_id fixo)."""
+
+    def __init__(self, cog: "TicketsCog" = None):
+        super().__init__(timeout=None)
+        self.cog = cog
+
+    def _get_cog(self, interaction: discord.Interaction) -> "TicketsCog":
+        return self.cog or interaction.client.get_cog("Tickets")
+
+    async def _abrir_ticket(self, interaction: discord.Interaction, tipo: str):
+        cog = self._get_cog(interaction)
+        info_tipo = TIPOS_TICKET[tipo]
+        guild = interaction.guild
+        autor = interaction.user
+
+        # já tem um ticket desse tipo aberto? não deixa abrir outro igual
+        existente = next(
+            (cid for cid, info in cog.data.items()
+             if info["owner_id"] == autor.id and info["tipo"] == tipo),
+            None,
+        )
+        if existente:
+            canal_existente = guild.get_channel(int(existente))
+            if canal_existente:
+                await interaction.response.send_message(
+                    f"você já tem um ticket de **{info_tipo['label']}** aberto em {canal_existente.mention} 💀",
+                    ephemeral=True,
+                )
+                return
+            cog.data.pop(existente, None)
+            _salvar_tickets(cog.data)
+
+        categoria = guild.get_channel(CATEGORIA_TICKET_ID)
+        if not isinstance(categoria, discord.CategoryChannel):
+            await interaction.response.send_message(
+                "❌ não encontrei a categoria de tickets configurada, avisa um admin 💀", ephemeral=True
+            )
+            return
+
+        await interaction.response.defer(ephemeral=True, thinking=True)
+
+        overwrites = {
+            guild.default_role: discord.PermissionOverwrite(view_channel=False),
+            autor: discord.PermissionOverwrite(
+                view_channel=True, send_messages=True, read_message_history=True, attach_files=True,
+            ),
+        }
+        for cargo_id in CARGOS_ATENDIMENTO_IDS:
+            cargo = guild.get_role(cargo_id)
+            if cargo:
+                overwrites[cargo] = discord.PermissionOverwrite(
+                    view_channel=True, send_messages=True, read_message_history=True, manage_messages=True,
+                )
+        if guild.me:
+            overwrites[guild.me] = discord.PermissionOverwrite(view_channel=True, manage_channels=True)
+
+        try:
+            canal = await guild.create_text_channel(
+                name=f"{tipo}-{_slug_ticket(autor.display_name)}",
+                category=categoria,
+                overwrites=overwrites,
+                reason=f"Ticket de {info_tipo['label']} aberto por {autor} ({autor.id})",
+            )
+        except discord.Forbidden:
+            await interaction.followup.send("❌ não tenho permissão pra criar canais.", ephemeral=True)
+            return
+
+        cog.data[str(canal.id)] = {"owner_id": autor.id, "tipo": tipo}
+        _salvar_tickets(cog.data)
+
+        mencoes_staff = " ".join(
+            guild.get_role(cid).mention for cid in CARGOS_ATENDIMENTO_IDS if guild.get_role(cid)
+        )
+        embed = discord.Embed(
+            title=info_tipo["titulo"],
+            description=(
+                f"{autor.mention}, {info_tipo['descricao']}\n\n"
+                f"só você e a staff conseguem ver esse canal. sem pressa 💀"
+            ),
+            color=COR_TICKET, timestamp=datetime.now(timezone.utc),
+        )
+        embed.set_footer(text=FOOTER_DOMINUS)
+        await canal.send(
+            content=f"{autor.mention} {mencoes_staff}".strip(),
+            embed=embed,
+            view=FecharTicketView(cog),
+        )
+
+        await interaction.followup.send(f"✅ ticket aberto em {canal.mention} 💀", ephemeral=True)
+
+    @discord.ui.button(label="Virar Membro", emoji="📜", style=discord.ButtonStyle.secondary, custom_id="tickets:membro", row=0)
+    async def btn_membro(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._abrir_ticket(interaction, "membro")
+
+    @discord.ui.button(label="Suporte", emoji="🎫", style=discord.ButtonStyle.secondary, custom_id="tickets:suporte", row=0)
+    async def btn_suporte(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._abrir_ticket(interaction, "suporte")
+
+    @discord.ui.button(label="Virar Staff", emoji="🛡️", style=discord.ButtonStyle.secondary, custom_id="tickets:staff", row=0)
+    async def btn_staff(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._abrir_ticket(interaction, "staff")
+
+    @discord.ui.button(label="Parcerias", emoji="🤝", style=discord.ButtonStyle.secondary, custom_id="tickets:parcerias", row=0)
+    async def btn_parcerias(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._abrir_ticket(interaction, "parcerias")
+
+
+class TicketsCog(commands.Cog, name="Tickets"):
+    """Painel de atendimento: cria canais privados de ticket por categoria."""
+
+    def __init__(self, bot: commands.Bot):
+        self.bot = bot
+        self.data = _carregar_tickets()
+        self._painel_verificado = False
+        bot.add_view(PainelTicketView(self))  # sobrevive a restart
+        bot.add_view(FecharTicketView(self))  # idem, pro botão de fechar em tickets já abertos
+
+    def _montar_embed_painel(self) -> discord.Embed:
+        embed = discord.Embed(
+            title="🎫 Atendimento",
+            description=(
+                "precisa falar com a staff? clique num dos botões abaixo pra abrir seu ticket.\n\n"
+                "um canal privado é criado só pra você — ninguém mais vê, além de quem for te atender."
+            ),
+            color=COR_TICKET,
+        )
+        embed.set_image(url=IMAGEM_TICKET)
+        embed.set_footer(text="💀 Pink está de olho. Vai ser rápido, eu acho.")
+        return embed
+
+    async def _enviar_painel(self, canal: discord.abc.Messageable):
+        await canal.send(embed=self._montar_embed_painel(), view=PainelTicketView(self))
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        if self._painel_verificado:
+            return
+        self._painel_verificado = True
+
+        canal = self.bot.get_channel(CANAL_TICKET_ID)
+        if canal is None:
+            return
+
+        ja_existe = False
+        try:
+            async for msg in canal.history(limit=50):
+                if msg.author.id == self.bot.user.id and msg.embeds and msg.embeds[0].title == "🎫 Atendimento":
+                    ja_existe = True
+                    break
+        except discord.Forbidden:
+            return
+
+        if not ja_existe:
+            await self._enviar_painel(canal)
+
+    @commands.command(name="painelticket")
+    @commands.has_permissions(administrator=True)
+    async def painel_ticket(self, ctx: commands.Context):
+        """Publica (ou republica) o painel de tickets no canal configurado. Uso: pk!painelticket"""
+        canal = ctx.guild.get_channel(CANAL_TICKET_ID) or ctx.channel
+        await self._enviar_painel(canal)
+        if canal != ctx.channel:
+            await ctx.send(f"✅ painel de tickets publicado em {canal.mention}!!")
+        else:
+            await ctx.send(embed=embed_ok("✅ Painel publicado!!", "o painel de tickets está ativo aqui."))
+
+    @commands.command(name="addstaffticket", aliases=["addticket"])
+    async def add_staff_ticket(self, ctx: commands.Context, membro: discord.Member):
+        """Adiciona alguém no ticket atual (só staff/dono podem usar). Uso: pk!addstaffticket @pessoa"""
+        info = self.data.get(str(ctx.channel.id))
+        if info is None:
+            await ctx.send("esse canal não é um ticket 💀")
+            return
+        if not (_permitido_atender(ctx.author) or ctx.author.id == info["owner_id"]):
+            await ctx.send("🚫 você não pode adicionar ninguém nesse ticket.")
+            return
+        await ctx.channel.set_permissions(membro, view_channel=True, send_messages=True, read_message_history=True)
+        await ctx.send(f"✅ {membro.mention} foi adicionado(a) ao ticket!!")
+
+    @commands.command(name="fecharticket")
+    async def fechar_ticket_cmd(self, ctx: commands.Context):
+        """Fecha o ticket atual (só staff/dono podem usar). Uso: pk!fecharticket"""
+        info = self.data.get(str(ctx.channel.id))
+        if info is None:
+            await ctx.send("esse canal não é um ticket 💀")
+            return
+        if not (_permitido_atender(ctx.author) or ctx.author.id == info["owner_id"]):
+            await ctx.send("🚫 só quem abriu o ticket ou a staff pode fechar.")
+            return
+        await ctx.send(fala("fechando esse ticket em 5 segundos... 💀"))
+        self.data.pop(str(ctx.channel.id), None)
+        _salvar_tickets(self.data)
+        await asyncio.sleep(5)
+        try:
+            await ctx.channel.delete(reason=f"Ticket fechado por {ctx.author}")
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+
+
+# ══════════════════════════════════════════════════════════════════
 #  🕵️  MÓDULO DE AUDITORIA — log total do servidor
 # ══════════════════════════════════════════════════════════════════
 #
@@ -2553,6 +2889,18 @@ async def pink_help(ctx: commands.Context):
         )
     )
     embed.add_field(
+        name="🎫 Tickets",
+        inline=False,
+        value=(
+            "painel de atendimento fixo com 4 botões: Virar Membro, Suporte, "
+            "Virar Staff e Parcerias — cada um abre um canal privado só pra "
+            "você e pra staff de atendimento.\n"
+            "`pk!painelticket` — publica/republica o painel (admin)\n"
+            "`pk!addstaffticket @pessoa` — adiciona alguém no ticket atual\n"
+            "`pk!fecharticket` — fecha o ticket atual (ou use o botão 🔒 no canal)"
+        )
+    )
+    embed.add_field(
         name="📥 Registro",
         inline=False,
         value=(
@@ -2658,6 +3006,7 @@ async def _main():
         await bot.add_cog(GruposCog(bot))
         await bot.add_cog(CargoVinculadoCog(bot))
         await bot.add_cog(FichasCog(bot))
+        await bot.add_cog(TicketsCog(bot))
         await bot.add_cog(AuditoriaCog(bot))
         await bot.add_cog(RegistroCog(bot))
         if not TOKEN:
