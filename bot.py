@@ -36,6 +36,7 @@ Módulos:
 import discord
 from discord.ext import commands
 import asyncio
+import io
 import os
 import json
 import random
@@ -281,6 +282,8 @@ IMAGEM_TICKET = "https://cdn.discordapp.com/attachments/926913851172204577/15437
 COR_TICKET = 0x8B0000  # vermelho escuro, no estilo da referência
 
 TICKETS_DATA_FILE = "pink_tickets.json"
+
+CANAL_LOG_TICKETS_ID = 1543368843878072370  # canal onde o relatório detalhado de cada ticket fechado é postado
 
 # ══════════════════════════════════════════════════════════════════
 #  🤖  SETUP DO BOT
@@ -1739,7 +1742,11 @@ class FichasCog(commands.Cog, name="Fichas"):
 #      quem tem um cargo de atendimento, ou um administrador pode
 #      fechar;
 #   4) Pink impede que a mesma pessoa abra dois tickets do MESMO tipo
-#      ao mesmo tempo (evita canais duplicados/spam).
+#      ao mesmo tempo (evita canais duplicados/spam);
+#   5) ao fechar (pelo botão ou por pk!fecharticket), Pink manda um
+#      relatório detalhado — tipo, dono, quem fechou, duração, total
+#      de mensagens, participantes e um transcript .txt — no canal
+#      CANAL_LOG_TICKETS_ID, antes de apagar o canal do ticket.
 #
 # O painel principal e o botão de fechar são registrados com
 # bot.add_view() e custom_id fixo, então sobrevivem a um restart do
@@ -1822,6 +1829,7 @@ class FecharTicketView(discord.ui.View):
         await interaction.response.send_message(fala("fechando esse ticket em 5 segundos... 💀"))
         cog.data.pop(canal_id_str, None)
         _salvar_tickets(cog.data)
+        await cog._enviar_relatorio(interaction.guild, interaction.channel, info, interaction.user)
         await asyncio.sleep(5)
         try:
             await interaction.channel.delete(reason=f"Ticket fechado por {interaction.user}")
@@ -1897,7 +1905,11 @@ class PainelTicketView(discord.ui.View):
             await interaction.followup.send("❌ não tenho permissão pra criar canais.", ephemeral=True)
             return
 
-        cog.data[str(canal.id)] = {"owner_id": autor.id, "tipo": tipo}
+        cog.data[str(canal.id)] = {
+            "owner_id": autor.id,
+            "tipo": tipo,
+            "aberto_em": datetime.now(timezone.utc).isoformat(),
+        }
         _salvar_tickets(cog.data)
 
         mencoes_staff = " ".join(
@@ -1963,6 +1975,93 @@ class TicketsCog(commands.Cog, name="Tickets"):
     async def _enviar_painel(self, canal: discord.abc.Messageable):
         await canal.send(embed=self._montar_embed_painel(), view=PainelTicketView(self))
 
+    async def _gerar_relatorio(self, canal: discord.TextChannel, info: dict, fechado_por: discord.abc.User):
+        """Monta o embed + o transcript em .txt do ticket que está sendo fechado."""
+        tipo = info.get("tipo", "desconhecido")
+        info_tipo = TIPOS_TICKET.get(tipo, {"label": tipo})
+        owner_id = info.get("owner_id")
+        owner = canal.guild.get_member(owner_id) if owner_id else None
+
+        aberto_em = None
+        if info.get("aberto_em"):
+            try:
+                aberto_em = datetime.fromisoformat(info["aberto_em"])
+            except ValueError:
+                aberto_em = None
+        fechado_em = datetime.now(timezone.utc)
+
+        duracao_str = "não registrada"
+        if aberto_em:
+            total_seg = int((fechado_em - aberto_em).total_seconds())
+            h, resto = divmod(total_seg, 3600)
+            m, s = divmod(resto, 60)
+            partes = ([f"{h}h"] if h else []) + ([f"{m}m"] if m else []) + [f"{s}s"]
+            duracao_str = " ".join(partes)
+
+        mensagens, participantes = [], {}
+        try:
+            async for msg in canal.history(limit=None, oldest_first=True):
+                participantes[msg.author.id] = str(msg.author)
+                hora = msg.created_at.strftime("%d/%m/%Y %H:%M:%S")
+                conteudo = msg.content.strip()
+                if not conteudo and (msg.attachments or msg.embeds):
+                    conteudo = "[anexo/embed sem texto]"
+                linha = f"[{hora}] {msg.author} ({msg.author.id}): {conteudo}"
+                if msg.attachments:
+                    linha += " " + " ".join(a.url for a in msg.attachments)
+                mensagens.append(linha)
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+
+        embed = discord.Embed(
+            title="🎫 Relatório de Ticket Fechado",
+            color=COR_TICKET,
+            timestamp=fechado_em,
+        )
+        embed.add_field(name="Tipo", value=info_tipo.get("label", tipo), inline=True)
+        embed.add_field(name="Canal", value=f"`#{canal.name}`", inline=True)
+        embed.add_field(name="ID do canal", value=f"`{canal.id}`", inline=True)
+        embed.add_field(
+            name="Aberto por",
+            value=owner.mention if owner else (f"`{owner_id}` *(saiu do servidor)*" if owner_id else "*desconhecido*"),
+            inline=True,
+        )
+        embed.add_field(name="Fechado por", value=fechado_por.mention, inline=True)
+        embed.add_field(
+            name="Aberto em",
+            value=f"<t:{int(aberto_em.timestamp())}:F>" if aberto_em else "*não registrado*",
+            inline=True,
+        )
+        embed.add_field(name="Fechado em", value=f"<t:{int(fechado_em.timestamp())}:F>", inline=True)
+        embed.add_field(name="Duração", value=duracao_str, inline=True)
+        embed.add_field(name="Total de mensagens", value=str(len(mensagens)), inline=True)
+        if participantes:
+            lista = "\n".join(f"• {nome} (`{uid}`)" for uid, nome in participantes.items())
+            embed.add_field(name="Participantes", value=lista[:1024], inline=False)
+        embed.set_footer(text=FOOTER_DOMINUS)
+
+        arquivo = None
+        if mensagens:
+            buffer = io.BytesIO("\n".join(mensagens).encode("utf-8"))
+            arquivo = discord.File(buffer, filename=f"transcript-{canal.name}.txt")
+
+        return embed, arquivo
+
+    async def _enviar_relatorio(self, guild: discord.Guild, canal: discord.TextChannel, info: dict, fechado_por: discord.abc.User):
+        """Manda o relatório detalhado do ticket fechado em CANAL_LOG_TICKETS_ID."""
+        canal_log = guild.get_channel(CANAL_LOG_TICKETS_ID)
+        if canal_log is None:
+            print(f"⚠️ Tickets: canal de relatório {CANAL_LOG_TICKETS_ID} não encontrado")
+            return
+        try:
+            embed, arquivo = await self._gerar_relatorio(canal, info, fechado_por)
+            if arquivo:
+                await canal_log.send(embed=embed, file=arquivo)
+            else:
+                await canal_log.send(embed=embed)
+        except (discord.Forbidden, discord.HTTPException) as e:
+            print(f"⚠️ Tickets: falha ao enviar relatório do ticket {canal.id} — {e}")
+
     @commands.Cog.listener()
     async def on_ready(self):
         if self._painel_verificado:
@@ -2022,6 +2121,7 @@ class TicketsCog(commands.Cog, name="Tickets"):
         await ctx.send(fala("fechando esse ticket em 5 segundos... 💀"))
         self.data.pop(str(ctx.channel.id), None)
         _salvar_tickets(self.data)
+        await self._enviar_relatorio(ctx.guild, ctx.channel, info, ctx.author)
         await asyncio.sleep(5)
         try:
             await ctx.channel.delete(reason=f"Ticket fechado por {ctx.author}")
@@ -2897,7 +2997,8 @@ async def pink_help(ctx: commands.Context):
             "você e pra staff de atendimento.\n"
             "`pk!painelticket` — publica/republica o painel (admin)\n"
             "`pk!addstaffticket @pessoa` — adiciona alguém no ticket atual\n"
-            "`pk!fecharticket` — fecha o ticket atual (ou use o botão 🔒 no canal)"
+            "`pk!fecharticket` — fecha o ticket atual (ou use o botão 🔒 no canal)\n"
+            "*ao fechar, Pink manda um relatório detalhado do ticket no canal de log!!*"
         )
     )
     embed.add_field(
