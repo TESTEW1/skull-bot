@@ -2130,6 +2130,165 @@ class TicketsCog(commands.Cog, name="Tickets"):
 
 
 # ══════════════════════════════════════════════════════════════════
+#  🧹  MÓDULO DE LIMPEZA DE CARGOS — apaga cargos duplicados
+# ══════════════════════════════════════════════════════════════════
+#
+# Como funciona:
+#   1) `pk!cargosduplicados` varre todos os cargos do servidor e
+#      agrupa os que têm exatamente o mesmo NOME;
+#   2) o cargo @everyone e cargos "managed" (de bots, integrações,
+#      boost do Discord etc.) NUNCA entram na conta — não dá pra
+#      apagar esses manualmente mesmo, e mexer no cargo de um bot
+#      quebraria as permissões dele;
+#   3) de cada grupo de nome repetido, Pink decide qual cargo "fica"
+#      pela quantidade de MEMBROS — o com mais gente é considerado o
+#      mais usado e é mantido; os outros (com menos gente, ou
+#      ninguém) entram na lista de apagar. Em caso de empate, fica o
+#      cargo mais antigo (criado primeiro);
+#   4) antes de apagar qualquer coisa, Pink manda uma prévia completa
+#      (quem fica, quem sai, quantos membros tem cada um) com botões
+#      de Confirmar/Cancelar — só depois da confirmação é que os
+#      cargos são apagados de verdade. Isso NÃO tem como desfazer,
+#      por isso o passo extra.
+
+class ConfirmarLimpezaCargosView(discord.ui.View):
+    """Prévia + confirmação antes de apagar cargos duplicados — ação irreversível."""
+
+    def __init__(self, cargos_para_apagar: list[discord.Role], autor_id: int):
+        super().__init__(timeout=120)
+        self.cargos_para_apagar = cargos_para_apagar
+        self.autor_id = autor_id
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.autor_id:
+            await interaction.response.send_message(
+                "só quem pediu essa limpeza pode confirmar isso!! 🚫", ephemeral=True
+            )
+            return False
+        return True
+
+    async def on_timeout(self):
+        for item in self.children:
+            item.disabled = True
+
+    @discord.ui.button(label="Apagar Duplicados", emoji="🗑️", style=discord.ButtonStyle.danger)
+    async def confirmar(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer(thinking=True)
+
+        apagados, falhas = [], []
+        for cargo_antigo in self.cargos_para_apagar:
+            # confere de novo na hora H — o cargo pode ter sumido ou mudado
+            # de nome entre o comando e a confirmação
+            cargo = interaction.guild.get_role(cargo_antigo.id)
+            if cargo is None:
+                continue
+            try:
+                await cargo.delete(
+                    reason=f"Limpeza de cargos duplicados confirmada por {interaction.user} ({interaction.user.id})"
+                )
+                apagados.append(cargo_antigo.name)
+            except discord.Forbidden:
+                falhas.append(f"{cargo_antigo.name} *(sem permissão — cargo acima de Pink na hierarquia?)*")
+            except discord.HTTPException as e:
+                falhas.append(f"{cargo_antigo.name} *(erro: {e})*")
+            await asyncio.sleep(0.4)  # respiro entre exclusões, evita rate limit
+
+        desc = f"apaguei **{len(apagados)}** cargo(s) duplicado(s) 🗑️💀"
+        if falhas:
+            desc += f"\n\n⚠️ não consegui apagar {len(falhas)}:\n" + "\n".join(f"• {f}" for f in falhas[:10])
+
+        for item in self.children:
+            item.disabled = True
+        try:
+            await interaction.message.edit(view=self)
+        except discord.HTTPException:
+            pass
+        await interaction.followup.send(embed=embed_ok("🗑️ Limpeza concluída!!", desc))
+        self.stop()
+
+    @discord.ui.button(label="Cancelar", emoji="❌", style=discord.ButtonStyle.secondary)
+    async def cancelar(self, interaction: discord.Interaction, button: discord.ui.Button):
+        for item in self.children:
+            item.disabled = True
+        await interaction.response.edit_message(
+            content="❌ limpeza cancelada, nenhum cargo foi apagado 💀", embed=None, view=self
+        )
+        self.stop()
+
+
+class LimpezaCargosCog(commands.Cog, name="LimpezaCargos"):
+    """Acha cargos com nomes duplicados e apaga os menos usados, mantendo o com mais membros de cada nome."""
+
+    def __init__(self, bot: commands.Bot):
+        self.bot = bot
+
+    def _achar_duplicados(self, guild: discord.Guild) -> tuple[list[discord.Role], list[discord.Role]]:
+        """Retorna (mantidos, apagar) — agrupando cargos por nome EXATO.
+        Ignora @everyone e cargos managed (bots, integrações, boost)."""
+        grupos: dict[str, list[discord.Role]] = defaultdict(list)
+        for cargo in guild.roles:
+            if cargo.is_default() or cargo.managed:
+                continue
+            grupos[cargo.name].append(cargo)
+
+        mantidos, apagar = [], []
+        for cargos in grupos.values():
+            if len(cargos) < 2:
+                continue
+            # o "mais usado" = o com mais membros; empate desempata pelo mais antigo (menor ID)
+            ordenados = sorted(cargos, key=lambda r: (-len(r.members), r.id))
+            mantidos.append(ordenados[0])
+            apagar.extend(ordenados[1:])
+        return mantidos, apagar
+
+    @commands.command(name="cargosduplicados", aliases=["limparduplicados", "apagarduplicados"])
+    @commands.has_permissions(administrator=True)
+    async def cargos_duplicados(self, ctx: commands.Context):
+        """Mostra e (com confirmação) apaga cargos com nomes duplicados, mantendo o mais usado de cada nome. Uso: pk!cargosduplicados"""
+        mantidos, apagar = self._achar_duplicados(ctx.guild)
+
+        if not apagar:
+            await ctx.send(fala(
+                "não achei nenhum cargo duplicado por aqui 💀 "
+                "(nomes iguais entre cargos normais, sem contar @everyone e cargos de bot/integração)"
+            ))
+            return
+
+        mantidos_por_nome = {r.name: r for r in mantidos}
+        linhas = []
+        for nome, cargo_fica in mantidos_por_nome.items():
+            cargos_saem = [r for r in apagar if r.name == nome]
+            bloco = [
+                f"**{nome}**",
+                f"　✅ mantém {cargo_fica.mention} — `{len(cargo_fica.members)}` membro(s) (ID `{cargo_fica.id}`)",
+            ]
+            bloco += [
+                f"　🗑️ apaga {r.mention} — `{len(r.members)}` membro(s) (ID `{r.id}`)"
+                for r in cargos_saem
+            ]
+            linhas.append("\n".join(bloco))
+
+        desc_corpo = "\n\n".join(linhas)
+        if len(desc_corpo) > 3500:
+            desc_corpo = desc_corpo[:3500] + "\n\n*(lista cortada — tem mais duplicados que isso)*"
+
+        embed = discord.Embed(
+            title="🔎 Cargos duplicados encontrados",
+            description=(
+                f"achei **{len(apagar)}** cargo(s) duplicado(s), pra **{len(mantidos_por_nome)}** nome(s) repetido(s).\n"
+                f"em cada grupo eu mantenho o cargo com mais membros (o mais usado) e apago o resto.\n\n"
+                f"{desc_corpo}"
+            ),
+            color=COR_DOURADO,
+            timestamp=datetime.now(timezone.utc),
+        )
+        embed.set_footer(text="💀 Pink • isso NÃO tem como desfazer. confirme com cuidado.")
+
+        view = ConfirmarLimpezaCargosView(apagar, ctx.author.id)
+        await ctx.send(embed=embed, view=view)
+
+
+# ══════════════════════════════════════════════════════════════════
 #  🕵️  MÓDULO DE AUDITORIA — log total do servidor
 # ══════════════════════════════════════════════════════════════════
 #
@@ -3014,6 +3173,15 @@ async def pink_help(ctx: commands.Context):
         )
     )
     embed.add_field(
+        name="🧹 Limpeza de Cargos",
+        inline=False,
+        value=(
+            "`pk!cargosduplicados` — acha cargos com nomes iguais e apaga os "
+            "menos usados, mantendo sempre o com mais membros de cada nome "
+            "(admin, pede confirmação antes de apagar)"
+        )
+    )
+    embed.add_field(
         name="🕵️ Auditoria",
         inline=False,
         value=(
@@ -3108,6 +3276,7 @@ async def _main():
         await bot.add_cog(CargoVinculadoCog(bot))
         await bot.add_cog(FichasCog(bot))
         await bot.add_cog(TicketsCog(bot))
+        await bot.add_cog(LimpezaCargosCog(bot))
         await bot.add_cog(AuditoriaCog(bot))
         await bot.add_cog(RegistroCog(bot))
         if not TOKEN:
