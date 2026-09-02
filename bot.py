@@ -2766,10 +2766,8 @@ class AuditoriaCog(commands.Cog, name="Auditoria"):
 #      painéis (de PAINEIS_REGISTRO) já foram enviados no canal
 #      CANAL_REGISTRO_ID;
 #   2) antes de mandar os painéis que faltam, Pink garante que todo
-#      cargo usado neles existe: se o ID em CARGOS_REGISTRO estiver em
-#      0 e o cargo ainda não tiver sido criado por ela antes (ver
-#      CARGOS_REGISTRO_FILE), ela cria o cargo sozinha (nome e cor
-#      vêm de CARGOS_REGISTRO_AUTO) e guarda o ID gerado;
+#      cargo usado neles existe DE VERDADE no servidor — não basta ter
+#      um ID salvo no arquivo, ela confere com guild.get_role();
 #   3) manda só os painéis que faltam, na ordem em que estão na lista,
 #      e guarda o ID de cada mensagem enviada em REGISTRO_DATA_FILE;
 #   4) a partir daí, reagir com o emoji de uma opção dá o cargo
@@ -2794,6 +2792,15 @@ class AuditoriaCog(commands.Cog, name="Auditoria"):
 # de dados ter voltado vazio (host com disco efêmero, restart, arquivo
 # corrompido) — em vez de reenviar duplicado, Pink recupera o
 # message_id da mensagem que já existe e volta a rastreá-la.
+#
+# TRAVA DE SEGURANÇA #2 (cargos órfãos): _garantir_cargos NÃO confia
+# cegamente num ID salvo em CARGOS_REGISTRO_FILE. Antes de considerar
+# um cargo "já existe", ela chama guild.get_role(id) pra confirmar que
+# o cargo realmente está lá. Se o ID salvo estiver órfão (cargo foi
+# apagado, ou o registro nunca bateu com a realidade), ela primeiro
+# tenta ADOTAR um cargo já existente com o mesmo nome (escolhendo o
+# com mais membros, em caso de mais de um) antes de criar um cargo
+# novo — assim ela nunca duplica um cargo que você já tem.
 
 class RegistroCog(commands.Cog, name="Registro"):
     """Painéis de reação (reaction role) enviados uma única vez por painel."""
@@ -2818,28 +2825,72 @@ class RegistroCog(commands.Cog, name="Registro"):
     def _resolver_cargo_id(self, cargo_key: str) -> int:
         """ID a usar pro cargo: manual (CARGOS_REGISTRO) tem prioridade;
         senão usa o ID que Pink já criou sozinha antes; senão é 0 (ainda
-        não existe)."""
+        não existe). NÃO confere se o cargo existe de verdade — só
+        resolve qual ID usar. Quem precisa ter certeza de que o cargo
+        existe de verdade deve chamar guild.get_role() no ID retornado
+        (é isso que _garantir_cargos e _montar_embed_painel fazem)."""
         manual = CARGOS_REGISTRO.get(cargo_key, 0)
         if manual:
             return manual
         return self.cargos_criados.get(cargo_key, 0)
 
     async def _garantir_cargos(self, guild: discord.Guild):
-        """Cria automaticamente qualquer cargo de registro que ainda não
-        exista (ID 0 em CARGOS_REGISTRO e nunca criado por Pink antes)."""
+        """Garante que cada cargo do módulo de Registro existe DE VERDADE
+        no servidor — não confia só em ter um ID salvo no arquivo.
+
+        Pra cada cargo_key usado nos painéis:
+          1) se tem ID manual em CARGOS_REGISTRO, esse manda sempre —
+             só avisamos no console se ele não existir mais (não mexe
+             automaticamente num ID que você configurou à mão);
+          2) senão, se já tem um ID salvo por Pink E guild.get_role()
+             confirma que ele existe de verdade, não faz nada;
+          3) senão (ID sumiu, ou nunca existiu), primeiro tenta ADOTAR
+             um cargo já existente no servidor com o mesmo nome (nome
+             vem de CARGOS_REGISTRO_AUTO) — se houver mais de um com
+             esse nome, escolhe o com mais membros. Isso é o que evita
+             criar um cargo novo quando já existe um igual;
+          4) só cria um cargo novo se realmente não achar nada.
+        """
         for painel in PAINEIS_REGISTRO:
             for _emoji, _label, cargo_key in painel["opcoes"]:
-                if self._resolver_cargo_id(cargo_key):
-                    continue  # já tem ID manual, ou Pink já criou esse antes
-
                 nome, cor = CARGOS_REGISTRO_AUTO.get(cargo_key, (cargo_key, COR_NEUTRA))
 
-                # o mesmo cargo pode ser referenciado por mais de um painel
-                # (ex.: "dispositivo_pc" aparece em Verificação e Dispositivo)
-                # — sem essa checagem, o loop tentaria criar duas vezes.
-                if cargo_key in self.cargos_criados:
+                # 1) ID manual configurado à mão — sempre tem prioridade
+                manual_id = CARGOS_REGISTRO.get(cargo_key, 0)
+                if manual_id:
+                    if guild.get_role(manual_id) is None:
+                        print(
+                            f"⚠️ Registro: o ID manual {manual_id} configurado pra '{cargo_key}' "
+                            f"não corresponde a nenhum cargo no servidor {guild.id} — confira CARGOS_REGISTRO."
+                        )
                     continue
 
+                # 2) já tem um ID salvo por Pink? confere se o cargo AINDA EXISTE DE VERDADE
+                id_salvo = self.cargos_criados.get(cargo_key, 0)
+                if id_salvo and guild.get_role(id_salvo) is not None:
+                    continue  # existe de verdade, não mexe em nada
+
+                # 3) ID órfão ou nunca criado — tenta adotar um cargo já existente com o mesmo nome
+                candidatos = [r for r in guild.roles if r.name == nome]
+                if candidatos:
+                    escolhido = max(candidatos, key=lambda r: (len(r.members), -r.id))
+                    if id_salvo != escolhido.id:
+                        if id_salvo:
+                            print(
+                                f"ℹ️ Registro: ID salvo de '{cargo_key}' estava desatualizado "
+                                f"(era {id_salvo}) — adotando o cargo existente '{nome}' "
+                                f"(ID {escolhido.id}, {len(escolhido.members)} membro(s))."
+                            )
+                        else:
+                            print(
+                                f"ℹ️ Registro: achei um cargo existente pra '{cargo_key}' — "
+                                f"'{nome}' (ID {escolhido.id}, {len(escolhido.members)} membro(s)). Adotando, sem criar um novo."
+                            )
+                        self.cargos_criados[cargo_key] = escolhido.id
+                        _salvar_cargos_registro(self.cargos_criados)
+                    continue
+
+                # 4) realmente não existe em lugar nenhum — cria um cargo novo
                 try:
                     cargo = await guild.create_role(
                         name=nome,
@@ -3057,13 +3108,20 @@ class RegistroCog(commands.Cog, name="Registro"):
     @commands.command(name="recriarcargosregistro", aliases=["fixcargos"])
     @commands.has_permissions(administrator=True)
     async def recriar_cargos(self, ctx: commands.Context):
-        """Cria (ou verifica) os cargos de registro, atualiza os embeds dos
-        painéis já enviados e sincroniza as reações deles com as opções
-        atuais (remove reação de opção removida, adiciona a que faltar).
-        NÃO manda painel novo nem reenvia mensagem — só ajusta o que já
-        está lá. Use se algum painel ainda mostrar 'cargo não configurado'
-        ou se você mudou as opções de um painel no código.
+        """Confere e conserta os cargos de registro, depois atualiza os
+        embeds e sincroniza as reações dos painéis já enviados.
+
+        Pra cada cargo dos painéis, confere DE VERDADE se ele ainda
+        existe no servidor (não só se tem um ID salvo no arquivo). Se
+        o cargo sumiu mas já existe outro com o mesmo nome, ela ADOTA
+        esse cargo em vez de criar um novo (então não duplica nada que
+        você já tem). Só cria um cargo do zero se realmente não achar
+        nada com aquele nome.
+
+        NÃO manda painel novo nem reenvia mensagem — só ajusta o que
+        já está lá (embed + reações dos painéis já publicados).
         Uso: pk!recriarcargosregistro"""
+        await ctx.send(fala("confere um instante... vou checar os cargos e os painéis 💀"))
         await self._garantir_cargos(ctx.guild)
 
         atualizados = 0
@@ -3084,7 +3142,8 @@ class RegistroCog(commands.Cog, name="Registro"):
 
         await ctx.send(embed=embed_ok(
             "✅ Cargos verificados!!",
-            f"cargos criados/confirmados e {atualizados} painel(is) atualizado(s) (embed + reações) com as opções certas."
+            f"cargos conferidos/adotados/criados e {atualizados} painel(is) atualizado(s) "
+            f"(embed + reações) com as opções certas."
         ))
 
 
@@ -3169,7 +3228,8 @@ async def pink_help(ctx: commands.Context):
             "os cargos são criados automaticamente por Pink na primeira vez.\n"
             "reaja pra pegar o cargo, tire a reação pra perder.\n"
             "`pk!painelregistro` — manda manualmente os painéis que faltam (admin)\n"
-            "`pk!recriarcargosregistro` — cria/verifica os cargos e sincroniza embed + reações dos painéis já enviados (admin)"
+            "`pk!recriarcargosregistro` — confere/conserta os cargos (sem duplicar os que já existem) "
+            "e sincroniza embed + reações dos painéis já enviados (admin)"
         )
     )
     embed.add_field(
